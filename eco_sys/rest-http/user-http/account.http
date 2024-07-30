@@ -1,0 +1,85 @@
+###
+GET http://localhost:8000/users/getall
+Content-Type: application/json
+
+###
+###
+GET http://localhost:8000/users/get/1/
+Content-Type: application/json
+
+###
+###
+POST http://localhost:8000/users/create
+Content-Type: application/json
+
+{
+    "username": "hackeymabel2@gmail.com"
+}
+###
+POST http://localhost:8000/users/register
+Content-Type: application/json
+
+{
+        "username": "hackeymabel2@gmail.com",
+        "password": "123456"
+}
+###
+POST http://localhost:8000/users/register
+Content-Type: application/json
+
+{
+    "username": "g1@gmail.com",
+    "password": "123456"
+}
+###
+
+POST http://localhost:8000/users/login
+Content-Type: application/json
+
+{
+    "username": "hackeymabel2@gmail.com",
+    "password": "123456"
+}
+###
+# @name login
+POST http://localhost:8000/users/login
+Content-Type: application/json
+
+{
+    "username": "g1@gmail.com",
+    "password": "123456"
+}
+###
+@jwt = {{login.response.body.access_token}}
+###
+POST http://localhost:8000/users/login
+Content-Type: application/json
+
+{
+    "username": "admin@g.com",
+    "password": "root"
+}
+
+###
+
+GET http://localhost:8000/user/products
+Authorization : Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4NjA5NTU0LCJpYXQiOjE3MTg2MDU5NTQsImp0aSI6IjhiMGU1YzQxNmU5ODRhNmFhZjVlMWNlZWY2OTM2MDVkIiwidXNlcl9pZCI6MX0.IygyNkxKuZF6N5HMYnya7AQpODLWz_fcnIcb8tcFFwg
+Content-Type: application/json 
+
+
+###
+POST http://localhost:8000/debug
+Authorization : Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4NjA5NTU0LCJpYXQiOjE3MTg2MDU5NTQsImp0aSI6IjhiMGU1YzQxNmU5ODRhNmFhZjVlMWNlZWY2OTM2MDVkIiwidXNlcl9pZCI6MX0.IygyNkxKuZF6N5HMYnya7AQpODLWz_fcnIcb8tcFFwg
+Content-Type: application/json
+
+{
+
+}
+###
+GET http://localhost:8000/debug
+Authorization : Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4NDQzNjY2LCJpYXQiOjE3MTg0NDAwNjYsImp0aSI6IjIyNmQ1ZmE0NmVhMzRiYjY5OGFhYTJlNjhmMjM2MGNiIiwidXNlcl9pZCI6MX0.XFWqc_2kmW4GGuH9Ej5yb8fLbHvS5rb18tSDWxcUnlc
+Content-Type: application/json
+
+{
+
+}

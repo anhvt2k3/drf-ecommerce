@@ -1,0 +1,43 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4ODU1MDQ1LCJpYXQiOjE3MTg4NTE0NDUsImp0aSI6ImQ3ZjBkZGIwMzkxNTQ3OGFiOGY5N2EwNGUyMDdiNGYxIiwidXNlcl9pZCI6Mn0.cPdYDf6fmIyL4wrUTQaqsslRYI_aRfM4nUA7QUUjNmI
+###
+GET http://localhost:8000/merchant/categories
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+### Won't care about pk and Create a single category
+POST http://localhost:8000/merchant/categories/1
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+     "cate_name": "Grocery", "parent": 1 
+}
+
+### 
+POST http://localhost:8000/merchant/categories
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+    "categories": [
+        { "cate_name": "Saleable" },
+        { "cate_name": "Sellable" },
+        { "cate_name": "Grocery", "parent": 1 }
+    ]
+}
+###
+PUT http://localhost:8000/merchant/categories
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+    "updates": [
+        { "id": 2, "cate_name": "Organic", "parent": null },
+        { "id": 3, "cate_name": "Animal rights", "parent": 1 }
+    ]
+}
+###
+DELETE http://localhost:8000/merchant/categories/1
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+###

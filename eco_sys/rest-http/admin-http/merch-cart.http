@@ -1,0 +1,9 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4NzgyNTc5LCJpYXQiOjE3MTg3Nzg5NzksImp0aSI6ImNlNjI5ZTI5NTNhMzQ1MzNiOGVlN2NiNTdhNWJmOTZlIiwidXNlcl9pZCI6Mn0.WjGK1L7mNrV8r790LHxegPvr9anDWl6nX6L_o2iEr5s
+###
+GET http://localhost:8000/merchant/cart
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+###
+GET http://localhost:8000/merchant/cart/by-time
+Authorization: Bearer {{jwt}}
+Content-Type: application/json

@@ -1,0 +1,33 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4Nzc5MzA0LCJpYXQiOjE3MTg3NzU3MDQsImp0aSI6IjU0M2M0Y2I4YjIyZTRjNTk5ZWQxYzY5YTJiMzFkMWY3IiwidXNlcl9pZCI6Mn0.HFBz4VCri12PN4d4hmdEIL1uHdo-zy5TGhEDc07SrY0
+
+###
+POST http://localhost:8000/user/checkout
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+    "products": [
+        { "product_id": 1, "quantity": 2 },
+        { "product_id": 2, "quantity": 5 }
+    ]
+}
+###
+POST http://localhost:8000/user/checkout/by-cart
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+
+}
+###
+GET http://localhost:8000/user/orders
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+###
+GET http://localhost:8000/user/orders/uncomplete
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+###
+GET http://localhost:8000/user/orders/complete
+Authorization: Bearer {{jwt}}
+Content-Type: application/json

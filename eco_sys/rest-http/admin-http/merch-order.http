@@ -1,0 +1,48 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4ODU4NzEwLCJpYXQiOjE3MTg4NTUxMTAsImp0aSI6IjI0ZDU5ZTQxOWEwMjQ3YWRiMTJhNzA5Y2Y1MDc5MDMxIiwidXNlcl9pZCI6Mn0.nPdWVm9kd09T8foXtjSDHvqj9vM_RVrFUq8Lj2nthgE
+
+###
+GET http://localhost:8000/merchant/orders
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+###
+GET http://localhost:8000/merchant/orders/67/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+###! Unrealistic (Too many fields to specify)
+POST http://localhost:8000/merchant/orders
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{}
+
+###
+PUT http://localhost:8000/merchant/orders/70/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+    "updates" : [
+        { "id": 67, "status": "delivering" } ,
+        { "id": 71, "status": "delivering" } 
+    ]
+}
+###
+DELETE  http://localhost:8000/merchant/orders/68/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+
+}
+###
+
+GET /merchant/orders/by-time
+GET /merchant/orders/by-time/<timestamp>
+GET /merchant/orders/by-value
+GET /merchant/orders/by-value/<min-max>
+GET /merchant/orders/by-prod/<prod-id>
+GET /merchant/orders/<ord-id>
+
+###

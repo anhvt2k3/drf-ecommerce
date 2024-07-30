@@ -1,0 +1,43 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4ODY4NDk3LCJpYXQiOjE3MTg4NjQ4OTcsImp0aSI6ImU1YjQzYWQ4ZTk1ZDQ4MTZhMjhmYjBmOGM5MjU3OThhIiwidXNlcl9pZCI6Mn0.PB8a0qVoHQ9I9hb61I5CT0ofCmay9VfjYjPT1lYckLY
+
+###
+GET http://localhost:8000/merchant/views
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+POST http://localhost:8000/merchant/views
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+PUT http://localhost:8000/merchant/views
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+DELETE  http://localhost:8000/merchant/views
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+GET http://localhost:8000/merchant/carts
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+POST http://localhost:8000/merchant/carts/
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+PUT http://localhost:8000/merchant/carts/
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###
+DELETE http://localhost:8000/merchant/carts/
+Authorization: Bearer {{jwt}}
+Content-Type:   application/json
+
+###

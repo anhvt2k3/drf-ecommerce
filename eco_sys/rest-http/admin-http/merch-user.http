@@ -1,0 +1,68 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4ODcyNjM1LCJpYXQiOjE3MTg4NjkwMzUsImp0aSI6IjFlMmEwMDdmNGQ4ZjQ3NjY5ZjhhYTNkY2UyMTdlN2UyIiwidXNlcl9pZCI6Mn0.Tvi4k2tQmT_bcXC7BluoFuORg9sG5C3yMw8ezFomv5I
+
+###
+# @name login
+POST http://localhost:8000/login
+Content-Type: application/json
+
+{
+    "username": "g1@gmail.com",
+    "password": "123456"
+}
+###
+@jwt = {{login.response.body.access_token}}
+###
+GET http://localhost:8000/merchant/users
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+POST http://localhost:8000/merchant/users/by-email
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+GET http://localhost:8000/merchant/users/<user-id>
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+GET http://localhost:8000/merchant/users/by-login
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+GET http://localhost:8000/merchant/users/by-order-value
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+DELETE http://localhost:8000/merchant/users/<user-id>/ban
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+GET http://localhost:8000/merchant/users/<user-id>/cart
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+GET http://localhost:8000/merchant/users/<user-id>/view
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+GET http://localhost:8000/merchant/users/<user-id>/orders
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###

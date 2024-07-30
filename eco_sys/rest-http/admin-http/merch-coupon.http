@@ -1,0 +1,37 @@
+@jwt = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE4ODYxOTYwLCJpYXQiOjE3MTg4NTgzNjAsImp0aSI6IjliM2ZhYTE4YmY4YjQ5ZjhiZmIyODMwNGRmYmQwNzZiIiwidXNlcl9pZCI6Mn0.haVbqkqbQVVarCcCNr6_zc_de1ngjx7rvBZfe1Mm9q4
+
+
+###
+GET http://localhost:8000/merchant/coupons
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+###
+GET http://localhost:8000/merchant/coupons/1/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+
+###
+POST http://localhost:8000/merchant/coupons/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+    "name": "Happy July", "discount": 0.015
+}
+
+###
+PUT http://localhost:8000/merchant/coupons/2/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+
+{
+    "name": "Happy June", "discount": 0.019
+}
+
+###
+DELETE http://localhost:8000/merchant/coupons/5/
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+###

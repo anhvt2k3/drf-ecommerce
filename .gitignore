@@ -1,0 +1,9 @@
+ec-env
+.vscode
+.idea
+.env
+*.pem
+*.sqlite3
+__pycache__
+migrations
+secrets.*
