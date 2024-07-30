@@ -118,6 +118,23 @@ class OrderItemShopView(generics.GenericAPIView):
             data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Items deleted successfully.', data=f'Number of Items deleted: {len(serializer_)}')
             return Response(data, data['status'])
     
+    
+    
+    
+class CheckoutView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = CheckoutSerializer
+    
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data={'user':request.user.id, **request.data})
+        if serializer.is_valid():
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Checkout created successfully.', data=serializer.data)
+            return Response(data, status=data['status'])
+        data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=serializer.errors)
+        return Response(data, status=data['status'])
+        
+    
 class OrderUserView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -220,11 +237,11 @@ class OrderUserView(generics.GenericAPIView):
         for item in items:
             shop = Product.objects.filter(id=item['product']).first().shop
             if shop not in order_of.keys():
-                print (f'coupon: {coupon} shop: {shop}')
+                # print (f'coupon: {coupon} shop: {shop}')
                 serializer = OrderSerializer(data={'user':user.id, 'coupon':coupon.id}) if coupon and shop.id == coupon.shop.id else OrderSerializer(data={'user':user.id})
                 serializer.is_valid(raise_exception=True)
                 order_of[shop] = serializer.save()
-                print (f'{serializer.initial_data} created')
+                # print (f'{serializer.initial_data} created')
             item['order'] = order_of[shop].id
             items_.append(item)
         return items_, order_of.values()

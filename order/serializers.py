@@ -326,7 +326,6 @@ class OrderItemDetailSerializer(OrderItemSerializer):
             
             
 #! FORCE DELETE SERIALIZERS
-            
 class OrderForceDeleteSerializer(OrderSerializer):
     def delete(self, instance=None):
         instance = instance or self.instance
@@ -345,3 +344,102 @@ class OrderItemForceDeleteSerializer(OrderItemSerializer):
         
         instance.delete()
         return instance
+    
+    
+#! PRICE CHECK OUT SERIALIZERS
+class CheckoutSerializer(serializers.Serializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(), required=False)
+    items = serializers.JSONField() #* format: [{'product':<id>, 'quantity':<int>}]
+    
+    def bind_shop(self, items:list[dict], coupon):
+        #* input format: items=[{'product':<Product>, 'quantity':<int>}], coupon=<Coupon>
+        #* output format: { <shop>: {'coupon':<Coupon>, 'total_charge': <float>, 'items': [{ 'product':<Product>, 'quantity':<int>, 'price':<Product>.price, 'charge':<Product>.price*quantity }]} }
+        order_of = {}
+        for item in items:
+            shop = item['product'].shop
+            quantity = item['quantity']
+            # Check if the shop is already in the dictionary
+            if shop not in order_of:
+                order_of[shop] = {
+                    'coupon': coupon if coupon and coupon.shop == shop else None,
+                    'items': [],
+                    'total_charge': 0.0
+                }
+            # Append the item to the shop's items list
+            order_of[shop]['items'].append({
+                'product': item['product'],
+                'quantity': quantity,
+                'price': item['product'].price,
+                'charge': item['product'].price * quantity
+            })
+            order_of[shop]['total_charge'] += item['product'].price * quantity 
+
+        return order_of
+    
+    def validate(self, data):
+        user = data.get('user')
+        coupon = data.get('coupon')
+        if coupon and coupon not in Coupon.objects.filter(pointexchange__buyer__user=user):
+            raise serializers.ValidationError('User does not possess this Coupon!')
+        
+        from . import tasks
+        items = []
+        sub_total = 0
+        for item in data.get('items'):
+            product = Product.objects.filter(id=item.get('product')).first()
+            if not product:
+                raise serializers.ValidationError(f'Product[{item.get("product")}] does not exist!')
+            if item.get('quantity') > product.in_stock:
+                raise serializers.ValidationError(f'Product[{product.id}] is out of stock!')
+            items.append({'product': product, 'quantity': item.get('quantity')})
+        binded_items = self.bind_shop(items, data.get('coupon'))
+        for shop in binded_items.keys():
+            binded_items[shop]['final_charge'] = tasks.apply_discounts(
+                benefits=tasks.retrieve_discounts(user, shop, coupon=binded_items[shop]['coupon']),
+                total_charge=binded_items[shop]['total_charge']
+            )   
+        
+        return binded_items
+    def to_representation(self, instance):
+        """
+        {
+            Checkout <i>: {
+                "shop": <Shop.name>,
+                "sub_total": <total_charge>,
+                "total": <final_charge>,
+                "items": [
+                    {
+                        "product": <Product>.name,
+                        "price": <float>,
+                        "quantity": <int>,
+                        "total_charge": <float>
+                    },...
+                ]
+            }, ...
+        }
+        """
+        representation = {}
+        i = 1
+
+        for shop, data in self.validated_data.items():
+            items_representation = []
+            for item in data['items']:
+                items_representation.append({
+                    'product': item['product'].name,
+                    'price': item['price'],
+                    'quantity': item['quantity'],
+                    'total_charge': item['charge']
+                })
+
+            representation[f'Checkout {i}'] = {
+                'shop': shop.name,
+                'items': items_representation,
+                'sub_total': data['total_charge'],
+                'total': data.get('final_charge', data['total_charge']),
+            }
+            
+            i += 1
+
+        return representation
+
