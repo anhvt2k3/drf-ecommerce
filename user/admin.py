@@ -47,7 +47,7 @@ class RankAdmin(admin.ModelAdmin):
         
 @admin.register(DefaultBenefit)
 class DefaultBenefitAdmin(admin.ModelAdmin):
-    list_display = ['id', 'discount_type', 'discount_amount', 'limitations']
+    list_display = ['id', 'benefit_type', 'benefit_value', 'limitations']
     
 @admin.register(ConfigBenefit)
 class ConfigBenefitAdmin(admin.ModelAdmin):

@@ -338,7 +338,7 @@ class OrderItemUserView(generics.GenericAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['id', 'order', 'product', 'quantity', 'created_at', 'updated_at']
     ordering_fields = ['id', 'order', 'product', 'quantity', 'created_at', 'updated_at']
-    search_fields = ['id', 'order', 'product']
+    search_fields = ['product__shop__name', 'product__name']
     
     def get(self, request, *args, **kwargs):
         orders = Order.objects.filter(user=request.user)

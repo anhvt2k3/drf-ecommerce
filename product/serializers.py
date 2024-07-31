@@ -47,8 +47,6 @@ class ProductSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.representation_dict_formater(
                 input_fields=['name', 'price', 'in_stock'],
@@ -62,8 +60,6 @@ class ProductSerializer(serializers.Serializer):
         
 class ProductDetailSerializer(ProductSerializer):
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.detail_dict_formater(
                 input_fields=['name', 'price', 'in_stock'],

@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'benefit',
     'user',
     'category',
+    'promotion',
     'product',
     'coupon',
     'cart',

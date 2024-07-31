@@ -79,13 +79,13 @@ class CouponSerializer(serializers.Serializer):
             validated_data['usage_limit'] = validated_data['default'].usage_limit
         if 'benefit_set' not in validated_data:
             try:
-                largest_discount_amount_configbenefit_per_coupon_default_benefit = [ConfigBenefit.objects.filter(default_benefit=item).order_by('-config_amount').first().id for item in validated_data['default'].benefit_set.all()]
+                largest_benefit_value_configbenefit_per_coupon_default_benefit = [ConfigBenefit.objects.filter(default_benefit=item).order_by('-config_amount').first().id for item in validated_data['default'].benefit_set.all()]
             except AttributeError as e:
                 raise serializers.ValidationError(f'One or more default Benefit is not created with a Config Benefit.')
             validated_data['benefit_set'] = ConfigBenefit.objects.filter(
                                                     rank_required__shop=validated_data['shop'], 
                                                     enabled=True,
-                                                    id__in=largest_discount_amount_configbenefit_per_coupon_default_benefit)
+                                                    id__in=largest_benefit_value_configbenefit_per_coupon_default_benefit)
         benefit_set = validated_data.pop('benefit_set')
         
         instance_class = self
@@ -129,7 +129,7 @@ class CouponSerializer(serializers.Serializer):
             'default': instance.default.id,
             'benefit_set': [{ 
                             'id': item.id,
-                            'discount_type': item.default_benefit.discount_type,
+                            'benefit_type': item.default_benefit.benefit_type,
                             'config_amount': item.config_amount,
                             'enabled': item.enabled,
                                     } 
@@ -147,7 +147,7 @@ class CouponDetailSerializer(CouponSerializer):
             'default': instance.default.id,
             'benefit_set': [{ 
                             'id': item.id,
-                            'discount_type': item.default_benefit.discount_type,
+                            'benefit_type': item.default_benefit.benefit_type,
                             'config_amount': item.config_amount,
                             'enabled': item.enabled,
                                     } 

@@ -18,7 +18,7 @@ class DefaultBenefitShopView(generics.ListAPIView):
     
     queryset = model_class.objects.all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['id', 'discount_type', 'discount_amount']
+    search_fields = ['id', 'benefit_type', 'benefit_value']
     ordering_fields = ['created_at', 'updated_at']
     
     def get(self, request, *args, **kwargs):
@@ -346,7 +346,7 @@ class DefaultBenefitManageView(mixins.ListModelMixin,
     
     queryset = model_class.objects.all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['id', 'discount_type', 'discount_amount']
+    search_fields = ['id', 'benefit_type', 'benefit_value']
     ordering_fields = ['created_at', 'updated_at']
     
     def get(self, request, *args, **kwargs):

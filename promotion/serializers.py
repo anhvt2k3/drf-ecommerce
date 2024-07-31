@@ -1,23 +1,23 @@
-from order.models import Order
-from rank.models import RankConfig
+from benefit.models import DefaultBenefit
 from shop.models import Shop
-from user.models import User
+from shop.serializers import ShopDetailSerializer, ShopSerializer
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
 
-class DefaultBenefitSerializer(serializers.Serializer):
+
+class DefaultPromotionSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200)
     benefit_type = serializers.CharField(max_length=200)
-    benefit_value = serializers.FloatField(default=0)
-    
-    def validate_benefit_value(self, value):
-        if value < 0:
-            raise serializers.ValidationError('Discount amount should be a positive float.')
-        return value
+    benefit_value = serializers.CharField(default=0)
+    #! non-model fields
+    conditions = serializers.JSONField()
     
     def create(self, validated_data):
+        conditions = validated_data.pop('conditions')
+        
         instance_class = self
-        model = DefaultBenefit
+        model = DefaultPromotion
         validated_data = validated_data
         #! Create instance with required fields from Serialier class.
         fields = validated_data.keys()
@@ -26,6 +26,16 @@ class DefaultBenefitSerializer(serializers.Serializer):
             args.update({field: validated_data.get(field)})
         instance = model.objects.create(**args)
         instance.save()
+        
+        id = instance.id
+        conditions = [{"defaultPromo": id, **item} for item in conditions]
+        serialier = PromoConditionSerializer(data=conditions, many=True)
+        try:
+            if serialier.is_valid(raise_exception=True):
+                serialier.save()
+        except Exception as e:
+            instance.hard_delete()
+            raise e
         return instance
     
     def update(self, instance, validated_data):
@@ -47,39 +57,140 @@ class DefaultBenefitSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.representation_dict_formater(
-                input_fields=['benefit_type', 'benefit_value'],
+                input_fields=['name','benefit_type', 'benefit_value'],
                 instance=instance),
+            'conditions': [{
+                            'type':item.cond_type,
+                            'choice': item.cond_choice,
+                            'min':item.cond_min} for item in instance.promocondition_set.all()]
         }
-        
-class DefaultBenefitDetailSerializer(DefaultBenefitSerializer):
+class DefaultPromotionDetailSerializer(DefaultPromotionSerializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.detail_dict_formater(
-                input_fields=['benefit_type', 'benefit_value'],
+                input_fields=['name','benefit_type', 'benefit_value'],
                 instance=instance),
+            'conditions': [PromoConditionDetailSerializer(item).data for item in instance.promocondition_set.all()]
         }
-        
-class ConfigBenefitSerializer(serializers.Serializer):
-    default_benefit = serializers.PrimaryKeyRelatedField(queryset=DefaultBenefit.objects.all())
-    rank_required = serializers.PrimaryKeyRelatedField(queryset=RankConfig.objects.all())
-    enabled = serializers.BooleanField(required=False)
-    config_amount = serializers.FloatField(required=False,min_value=0)
+class PromotionSerializer(serializers.Serializer):
+    shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.all())
     
-    def validate_config_amount(self, value):
-        if value < 0:
-            raise serializers.ValidationError('Config amount should be a positive float.')
-        return value
+    name = serializers.CharField(max_length=200, required=False)
+    start_date = serializers.DateTimeField(default=timezone.now)
+    end_date = serializers.DateTimeField(default=timezone.now() + timedelta(days=1))
+    benefit_type = serializers.CharField(max_length=200, required=False)
+    benefit_value = serializers.CharField(default=0)
+    #! non-model fields
+    defaultPromo = serializers.PrimaryKeyRelatedField(queryset=DefaultBenefit.objects.all())
+    conditions = serializers.JSONField()
+    
+    def validate(self, data):
+        if 'defaultPromo' not in data and ['name', 'benefit_type', 'benefit_value','conditions'] not in data:
+            raise serializers.ValidationError("DefaultPromotion or full Promotion infos must be provided.")
+        return data
     
     def create(self, validated_data):
-        if not validated_data.get('config_amount'):
-            validated_data['config_amount'] = validated_data['default_benefit'].benefit_value
+        if (defaultpromo := validated_data.get('defaultPromo')):
+            if 'name' not in validated_data: validated_data['name'] = defaultpromo.name
+            if 'benefit_type' not in validated_data: validated_data['benefit_type'] = defaultpromo.benefit_type 
+            if 'benefit_value' not in validated_data: validated_data['benefit_value'] = defaultpromo.benefit_value 
+            if 'conditions' not in validated_data: 
+                validated_data['conditions'] = [{ 
+                    'cond_type': item.cond_type,
+                    'cond_choice': item.cond_choice,
+                    'cond_min': item.cond_min }
+                    for item in defaultpromo.conditions_set.all()]
+        conditions = validated_data.pop('conditions')
         
         instance_class = self
-        model = ConfigBenefit
+        model = Promotion
+        validated_data = validated_data
+        #! Create instance with required fields from Serialier class.
+        fields = validated_data.keys()
+        args = {}
+        for field in fields:
+            args.update({field: validated_data.get(field)})
+        instance = model.objects.create(**args)
+        instance.save()
+        
+        id = instance.id
+        conditions = [{"promotion": id, **item} for item in conditions]
+        serialier = PromoConditionSerializer(data=conditions, many=True)
+        try:
+            if serialier.is_valid(raise_exception=True):
+                serialier.save()
+        except Exception as e:
+            instance.hard_delete()
+            raise e
+        return instance
+    
+    def update(self, instance, validated_data):
+        instance = instance
+        validated_data = validated_data
+        exclude_fields = ['id']
+        #! Update instance with fields from validated_data without the exclude fields.
+        instance_fields = [field.name for field in instance._meta.fields]
+        fields = [field for field in validated_data.keys() if field not in exclude_fields and field in instance_fields]
+        for field in fields:
+            value = validated_data.get(field) if field in validated_data else instance.__getattribute__(field)
+            instance.__setattr__(field, value)
+        instance.save()
+        return instance
+    
+    def delete(self, instance=None):
+        instance = instance or self.instance
+        instance.delete()
+        return instance
+    
+    def to_representation(self, instance):
+        return {
+            'shop': instance.shop.name,
+            **SerializerUtils.representation_dict_formater(
+                input_fields=['name','benefit_type', 'benefit_value', 'start_date', 'end_date'],
+                instance=instance),
+            'conditions': [{
+                            'type':item.cond_type,
+                            'choice': item.cond_choice,
+                            'min':item.cond_min} for item in instance.promocondition_set.all()]
+        }
+        
+class PromotionDetailSerializer(PromotionSerializer):
+    def to_representation(self, instance):
+        return {
+            'shop': ShopDetailSerializer(instance.shop).data,
+            **SerializerUtils.detail_dict_formater(
+                input_fields=['benefit_type', 'benefit_value', 'start_date', 'end_date'],
+                instance=instance),
+            'conditions': [PromoConditionDetailSerializer(item).data for item in instance.promocondition_set.all()]
+        }
+        
+class PromoConditionSerializer(serializers.Serializer):
+    promotion = serializers.PrimaryKeyRelatedField(queryset=Promotion.objects.all(), required=False)
+    defaultPromo = serializers.PrimaryKeyRelatedField(queryset=DefaultPromotion.objects.all(), required=False) 
+    
+    cond_type = serializers.CharField(max_length=200)
+    cond_choice = serializers.JSONField(default=list)
+    cond_min = serializers.FloatField(default=0)
+    """
+        cond_type = 'product_range' -> cond_choices = [1,2,3,4,5]
+        cond_type = 'charge' -> cond_min = 100
+        cond_type = 'quantity' -> cond_min = 1
+        cond_type = 'rank' -> cond_choices = ['Bronze', 'Silver', 'Gold', 'Platinum']
+        cond_type = 'item_charge' -> cond_min = 10
+        cond_type = 'item_quantity' -> cond_min = 1
+    """
+    def validate(self, data):
+        if 'promotion' not in data and 'defaultPromo' not in data:
+            raise serializers.ValidationError("Promotion or DefaultPromotion must be provided.")
+        if 'promotion' in data and 'defaultPromo' in data:
+            raise serializers.ValidationError("Promotion and DefaultPromotion cannot be provided together.")
+        return data
+        
+    def create(self, validated_data):
+        instance_class = self
+        model = PromoCondition
         validated_data = validated_data
         #! Create instance with required fields from Serialier class.
         fields = validated_data.keys()
@@ -110,88 +221,20 @@ class ConfigBenefitSerializer(serializers.Serializer):
     
     def to_representation(self, instance):
         return {
+            'promotion': instance.promotion.name or instance.defaultPromo.name,
+            'promotion_id': instance.promotion.id or instance.defaultPromo.id,
+            'is_default': instance.defaultPromo is not None,
             **SerializerUtils.representation_dict_formater(
-                input_fields=['enabled', 'config_amount'],
+                input_fields=['cond_type', 'cond_choice', 'cond_min'],
                 instance=instance),
-            'benefit_type': instance.default_benefit.benefit_type,
-            'rank_required': instance.rank_required.rank.name,
-            'shop_name': instance.rank_required.shop.name,
-            'shop_id': instance.rank_required.shop.id,
         }
 
-class ConfigBenefitDetailSerializer(ConfigBenefitSerializer):
+class PromoConditionDetailSerializer(PromoConditionSerializer):
     def to_representation(self, instance):
         return {
+            'promotion': PromotionDetailSerializer(instance.promotion).data if instance.promotion else DefaultPromotionDetailSerializer(instance.defaultPromo).data,
+            'is_default': instance.defaultPromo is not None,
             **SerializerUtils.detail_dict_formater(
-                input_fields=['enabled', 'config_amount'],
+                input_fields=['cond_type', 'cond_choice', 'cond_min'],
                 instance=instance),
-            'benefit_type': instance.default_benefit.benefit_type,
-            'rank_required': instance.rank_required.rank.name,
-            'shop_name': instance.rank_required.shop.name,
-            'shop_id': instance.rank_required.shop.id,
-        }
-        
-class UserBenefitSerializer(serializers.Serializer):
-    benefit = serializers.PrimaryKeyRelatedField(queryset=ConfigBenefit.objects.all())
-    shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.all(), required=False)
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    is_activate = serializers.BooleanField(default=True)
-    
-    def create(self, validated_data):
-        validated_data['shop'] = validated_data['benefit'].rank_required.shop
-        instance_class = self
-        model = UserBenefit
-        validated_data = validated_data
-        #! Create instance with required fields from Serialier class.
-        fields = validated_data.keys()
-        args = {}
-        for field in fields:
-            args.update({field: validated_data.get(field)})
-        instance = model.objects.create(**args)
-        instance.save()
-        return instance
-    
-    def update(self, instance, validated_data):
-        instance = instance
-        validated_data = validated_data
-        exclude_fields = ['id']
-        #! Update instance with fields from validated_data without the exclude fields.
-        instance_fields = [field.name for field in instance._meta.fields]
-        fields = [field for field in validated_data.keys() if field not in exclude_fields and field in instance_fields]
-        for field in fields:
-            value = validated_data.get(field) if field in validated_data else instance.__getattribute__(field)
-            instance.__setattr__(field, value)
-        instance.save()
-        return instance
-    
-    def delete(self, instance=None):
-        instance = instance or self.instance
-        instance.delete()
-        return instance
-    
-    def to_representation(self, instance):
-        return {
-            **SerializerUtils.representation_dict_formater(
-                input_fields=['is_activate'],
-                instance=instance),
-            'user': instance.user.username,
-            'shop': instance.shop.name,
-            'required rank': instance.benefit.rank_required.rank.name,
-            'benefit_type': instance.benefit.default_benefit.benefit_type,
-            'benefit': instance.benefit.config_amount,
-            'benefit_id': instance.benefit.id,
-        }
-        
-class UserBenefitDetailSerializer(UserBenefitSerializer):
-    def to_representation(self, instance):
-        return {
-            **SerializerUtils.detail_dict_formater(
-                input_fields=['is_activate'],
-                instance=instance),
-            'user': instance.user.username,
-            'shop': instance.shop.name,
-            'required rank': instance.benefit.rank_required.rank.name,
-            'benefit_type': instance.benefit.default_benefit.benefit_type,
-            'benefit': instance.benefit.config_amount,
-            'benefit_id': instance.benefit.id,
         }

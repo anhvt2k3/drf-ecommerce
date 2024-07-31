@@ -23,15 +23,15 @@ urlpatterns = [
 """
 {
     "items" : [
-        {"discount_type": "direct", "discount_amount": 200},
-        {"discount_type": "direct", "discount_amount": 150},
-        {"discount_type": "direct", "discount_amount": 100},
-        {"discount_type": "direct", "discount_amount": 70},
-        {"discount_type": "direct", "discount_amount": 50},
-        {"discount_type": "percentage", "discount_amount": 0.15},
-        {"discount_type": "percentage", "discount_amount": 0.3},
-        {"discount_type": "percentage", "discount_amount": 0.5},
-        {"discount_type": "percentage", "discount_amount": 0.7}
+        {"benefit_type": "direct", "benefit_value": 200},
+        {"benefit_type": "direct", "benefit_value": 150},
+        {"benefit_type": "direct", "benefit_value": 100},
+        {"benefit_type": "direct", "benefit_value": 70},
+        {"benefit_type": "direct", "benefit_value": 50},
+        {"benefit_type": "percentage", "benefit_value": 0.15},
+        {"benefit_type": "percentage", "benefit_value": 0.3},
+        {"benefit_type": "percentage", "benefit_value": 0.5},
+        {"benefit_type": "percentage", "benefit_value": 0.7}
     ]
 }
 

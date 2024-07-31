@@ -108,7 +108,7 @@ class OrderSerializer(serializers.Serializer):
                 'shop': orderitems.first().product.shop.name if orderitems.first() else None,
                 'ordered_items': len(orderitems.all()),
                 'coupon': instance.coupon.id if instance.coupon else None,
-                'applied benefits': [{item.config_benefit.default_benefit.discount_type:item.config_benefit.config_amount} for item in orderbenefits],
+                'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in orderbenefits],
                 }
         return {
             **SerializerUtils.representation_dict_formater(
@@ -119,7 +119,7 @@ class OrderSerializer(serializers.Serializer):
             'shop': instance.orderitem_set.first().product.shop.name if instance.orderitem_set.first() else None,
             'ordered_items': len(instance.orderitem_set.all()),
             'coupon': instance.coupon.id if instance.coupon else None,
-            'applied benefits': [{item.config_benefit.default_benefit.discount_type:item.config_benefit.config_amount} for item in instance.orderbenefit_set.all()],
+            'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in instance.orderbenefit_set.all()],
         }
     
 class OrderDetailSerializer(OrderSerializer):
@@ -136,7 +136,7 @@ class OrderDetailSerializer(OrderSerializer):
                 'shop': orderitems.first().product.shop.name if orderitems.first() else None,
                 'ordered_items': len(orderitems.all()),
                 'coupon': instance.coupon.id if instance.coupon else None,
-                'applied benefits': [{item.config_benefit.default_benefit.discount_type:item.config_benefit.config_amount} for item in orderbenefits],
+                'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in orderbenefits],
                 }
         return {
             **SerializerUtils.detail_dict_formater(
@@ -147,7 +147,7 @@ class OrderDetailSerializer(OrderSerializer):
             'shop': instance.orderitem_set.first().product.shop.name if instance.orderitem_set.first() else None,
             'ordered_items': len(instance.orderitem_set.all()),
             'coupon': instance.coupon.id if instance.coupon else None,
-            'applied benefits': [{item.config_benefit.default_benefit.discount_type:item.config_benefit.config_amount} for item in instance.orderbenefit_set.all()],
+            'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in instance.orderbenefit_set.all()],
         }
 
         
@@ -350,7 +350,7 @@ class OrderItemForceDeleteSerializer(OrderItemSerializer):
 class CheckoutSerializer(serializers.Serializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(), required=False)
-    items = serializers.JSONField() #* format: [{'product':<id>, 'quantity':<int>}]
+    items = serializers.JSONField(default=list) #* format: [{'product':<id>, 'quantity':<int>}]
     
     def bind_shop(self, items:list[dict], coupon):
         #* input format: items=[{'product':<Product>, 'quantity':<int>}], coupon=<Coupon>

@@ -2,56 +2,37 @@ from rest_framework.urlpatterns import path, include
 from .views import *
 
 urlpatterns = [
-    path('defaultbenefits/my/', DefaultBenefitShopView.as_view()),
-    path('defaultbenefits/my/<int:pk>/', DefaultBenefitShopView.as_view()),
-    path('defaultbenefits/', DefaultBenefitManageView.as_view()),
-    path('defaultbenefits/<int:pk>/', DefaultBenefitManageView.as_view()),
+    path('defaultpromo/my/', DefaultPromotionShopView.as_view()),
+    path('defaultpromo/my/<int:pk>/', DefaultPromotionShopView.as_view()),
+    path('defaultpromo/', DefaultPromotionManageView.as_view()),
+    path('defaultpromo/<int:pk>/', DefaultPromotionManageView.as_view()),
     
-    path('benefits/me/', BenefitUserView.as_view()),
-    path('benefits/me/<int:pk>/', BenefitUserView.as_view()),
+    path('promo/me/', PromotionUserView.as_view()),
+    path('promo/me/<int:pk>/', PromotionUserView.as_view()),
     
     
-    path('benefits/my/', BenefitsShopView.as_view()),
-    path('benefits/my/<int:pk>/', BenefitsShopView.as_view()),
-    path('benefitcfs/my/', BenefitConfigShopView.as_view()),
-    path('benefitcfs/my/<int:pk>/', BenefitConfigShopView.as_view()),
-    # path('products/push', ProductCUDView.as_view(),  name='Product-create'),
-    # path('products/update/<int:pk>', ProductCUDView.as_view(),  name='Product-update'),
-    # path('products/delete/<int:pk>', ProductCUDView.as_view(),  name='Product-delete'),
+    path('promo/my/', PromotionShopView.as_view()),
+    path('promo/my/<int:pk>/', PromotionShopView.as_view()),
 ]
 
 """
 {
-    "items" : [
-        {"benefit_type": "direct", "benefit_value": 200},
-        {"benefit_type": "direct", "benefit_value": 150},
-        {"benefit_type": "direct", "benefit_value": 100},
-        {"benefit_type": "direct", "benefit_value": 70},
-        {"benefit_type": "direct", "benefit_value": 50},
-        {"benefit_type": "percentage", "benefit_value": 0.15},
-        {"benefit_type": "percentage", "benefit_value": 0.3},
-        {"benefit_type": "percentage", "benefit_value": 0.5},
-        {"benefit_type": "percentage", "benefit_value": 0.7}
+    "name": "Winter Sale",
+    "benefit_type": "percentage",
+    "benefit_value": 0.15,
+    "conditions": [
+        {
+            "cond_type": "charge",
+            "cond_choice": null,
+            "cond_min": 50.0
+        },
+        {
+            "cond_type": "item_quantity",
+            "cond_choice": null,
+            "cond_min": 3
+        }
     ]
 }
 
-{
-    "items" : [
-        {"id": 1, "name": "Irony"}
-        ]    
-}
 
-{
-    "items" : [
-        {"rank": 1},
-        {"rank": 2},
-        {"rank": 3}
-    ]    
-}
-
-{
-    "rank": 1,
-    "required_point": 100,
-    "enabled": 0,
-}
 """

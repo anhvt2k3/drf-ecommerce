@@ -60,8 +60,6 @@ class QuestSerializer(serializers.Serializer):
         return items
     
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.representation_dict_formater(
                 input_fields=['name', 'reward_point', 'min_spent', 'min_quantity', 'end_date'],
@@ -73,8 +71,6 @@ class QuestSerializer(serializers.Serializer):
 
 class QuestDetailSerializer(QuestSerializer):
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.detail_dict_formater(
                 input_fields=['name', 'reward_point', 'min_spent', 'min_quantity', 'end_date'],

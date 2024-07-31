@@ -7,10 +7,10 @@ from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
 
 class DefaultBenefitSerializer(serializers.Serializer):
-    discount_type = serializers.CharField(max_length=200)
-    discount_amount = serializers.FloatField(default=0)
+    benefit_type = serializers.CharField(max_length=200)
+    benefit_value = serializers.FloatField(default=0)
     
-    def validate_discount_amount(self, value):
+    def validate_benefit_value(self, value):
         if value < 0:
             raise serializers.ValidationError('Discount amount should be a positive float.')
         return value
@@ -47,11 +47,9 @@ class DefaultBenefitSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.representation_dict_formater(
-                input_fields=['discount_type', 'discount_amount'],
+                input_fields=['benefit_type', 'benefit_value'],
                 instance=instance),
         }
         
@@ -59,7 +57,7 @@ class DefaultBenefitDetailSerializer(DefaultBenefitSerializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.detail_dict_formater(
-                input_fields=['discount_type', 'discount_amount'],
+                input_fields=['benefit_type', 'benefit_value'],
                 instance=instance),
         }
         
@@ -76,7 +74,7 @@ class ConfigBenefitSerializer(serializers.Serializer):
     
     def create(self, validated_data):
         if not validated_data.get('config_amount'):
-            validated_data['config_amount'] = validated_data['default_benefit'].discount_amount
+            validated_data['config_amount'] = validated_data['default_benefit'].benefit_value
         
         instance_class = self
         model = ConfigBenefit
@@ -113,7 +111,7 @@ class ConfigBenefitSerializer(serializers.Serializer):
             **SerializerUtils.representation_dict_formater(
                 input_fields=['enabled', 'config_amount'],
                 instance=instance),
-            'benefit_type': instance.default_benefit.discount_type,
+            'benefit_type': instance.default_benefit.benefit_type,
             'rank_required': instance.rank_required.rank.name,
             'shop_name': instance.rank_required.shop.name,
             'shop_id': instance.rank_required.shop.id,
@@ -125,7 +123,7 @@ class ConfigBenefitDetailSerializer(ConfigBenefitSerializer):
             **SerializerUtils.detail_dict_formater(
                 input_fields=['enabled', 'config_amount'],
                 instance=instance),
-            'benefit_type': instance.default_benefit.discount_type,
+            'benefit_type': instance.default_benefit.benefit_type,
             'rank_required': instance.rank_required.rank.name,
             'shop_name': instance.rank_required.shop.name,
             'shop_id': instance.rank_required.shop.id,
@@ -177,7 +175,7 @@ class UserBenefitSerializer(serializers.Serializer):
             'user': instance.user.username,
             'shop': instance.shop.name,
             'required rank': instance.benefit.rank_required.rank.name,
-            'benefit_type': instance.benefit.default_benefit.discount_type,
+            'benefit_type': instance.benefit.default_benefit.benefit_type,
             'benefit': instance.benefit.config_amount,
             'benefit_id': instance.benefit.id,
         }
@@ -191,7 +189,7 @@ class UserBenefitDetailSerializer(UserBenefitSerializer):
             'user': instance.user.username,
             'shop': instance.shop.name,
             'required rank': instance.benefit.rank_required.rank.name,
-            'benefit_type': instance.benefit.default_benefit.discount_type,
+            'benefit_type': instance.benefit.default_benefit.benefit_type,
             'benefit': instance.benefit.config_amount,
             'benefit_id': instance.benefit.id,
         }

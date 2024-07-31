@@ -9,7 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 
 from product.serializers import ProductSerializer
-
+from django.db.models import F, Q
 ### VIEWS UTILS ###
 
 class ViewUtils:

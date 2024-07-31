@@ -3,13 +3,13 @@ from eco_sys.mixins import SoftDeleteModelMixin
 
 # Create your models here.
 class DefaultBenefit(SoftDeleteModelMixin, models.Model):
-    discount_type = models.CharField(max_length=200)
-    discount_amount = models.FloatField(default=0)
+    benefit_type = models.CharField(max_length=200)
+    benefit_value = models.FloatField(default=0)
     limitations = models.JSONField(default=dict, blank=True, null=True)
     description = models.TextField(default="Default Benefit created by Admin for all Shop to utilize.")
 
     def __str__(self) -> str:
-        return f'DefaultBenefit[{self.id}]: {self.discount_type}'
+        return f'DefaultBenefit[{self.id}]: {self.benefit_type}'
 
 class ConfigBenefit(SoftDeleteModelMixin, models.Model):
     default_benefit = models.ForeignKey(DefaultBenefit, on_delete=models.CASCADE)

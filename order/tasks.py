@@ -137,9 +137,9 @@ def apply_discounts(benefits, total_charge, **kwargs):
         benefitType = benefit.pop('benefit_type')
         benefitValue = benefit.pop('benefit')
         if benefitType == 'percentage':
-            total_charge = total_charge * (1 - benefitValue)
+            total_charge = total_charge * (1 - float(benefitValue))
         elif benefitType == 'direct':
-            total_charge = total_charge - benefitValue
+            total_charge = total_charge - float(benefitValue)
         total_charge = 0 if total_charge < 0 else total_charge
         if order: order.store_benefit(benefit)
     return total_charge
@@ -148,16 +148,16 @@ def retrieve_discounts(user,shop,**kwargs):
     benefits = [{
                     'config_benefit': item.benefit,
                     'source': f'RankConfig[{item.benefit.rank_required.id}]',
-                    'benefit_type':item.benefit.default_benefit.discount_type,
+                    'benefit_type':item.benefit.default_benefit.benefit_type,
                     'benefit':item.benefit.config_amount 
                     }  
-            for item in UserBenefit.objects.filter(shop=shop, user=user, is_activate=True).order_by('-benefit__default_benefit__discount_type')]
+            for item in UserBenefit.objects.filter(shop=shop, user=user, is_activate=True).order_by('-benefit__default_benefit__benefit_type')]
     if (coupon := kwargs.get('coupon')):
         benefits += [{  
                         'config_benefit': item,
                         'source': f'Coupon[{coupon.id}]',
-                        'benefit_type':item.default_benefit.discount_type,
+                        'benefit_type':item.default_benefit.benefit_type,
                         'benefit':item.config_amount 
                         } 
-            for item in coupon.benefit_set.all().order_by('-default_benefit__discount_type')] if coupon else []
+            for item in coupon.benefit_set.all().order_by('-default_benefit__benefit_type')] if coupon else []
     return benefits

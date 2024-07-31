@@ -55,8 +55,6 @@ class PointExchangeSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.representation_dict_formater(
                 input_fields=[],
@@ -74,8 +72,6 @@ class PointExchangeSerializer(serializers.Serializer):
 
 class PointExchangeDetailSerializer(PointExchangeSerializer):
     def to_representation(self, instance):
-        #@ this should never be true
-        #if instance.is_deleted: return {'This item is deleted.'}
         return {
             **SerializerUtils.detail_dict_formater(
                 input_fields=[],
