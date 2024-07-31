@@ -10,7 +10,6 @@ urlpatterns = [
     path('promo/me/', PromotionUserView.as_view()),
     path('promo/me/<int:pk>/', PromotionUserView.as_view()),
     
-    
     path('promo/my/', PromotionShopView.as_view()),
     path('promo/my/<int:pk>/', PromotionShopView.as_view()),
 ]
@@ -32,6 +31,29 @@ urlpatterns = [
             "cond_min": 3
         }
     ]
+}
+
+{
+    "name": "Summer Sale",
+    "benefit_type": "percentage",
+    "benefit_value": "0.2",
+    "defaultPromo": 4,
+    "conditions": [
+        {
+            "cond_type": "charge",
+            "cond_choice": null,
+            "cond_min": 100.0
+        },
+        {
+            "cond_type": "quantity",
+            "cond_choice": null,
+            "cond_min": 2
+        }
+    ]
+}
+
+{
+    "defaultPromo": 4,    
 }
 
 

@@ -81,10 +81,10 @@ class PromotionSerializer(serializers.Serializer):
     start_date = serializers.DateTimeField(default=timezone.now)
     end_date = serializers.DateTimeField(default=timezone.now() + timedelta(days=1))
     benefit_type = serializers.CharField(max_length=200, required=False)
-    benefit_value = serializers.CharField(default=0)
+    benefit_value = serializers.CharField(required=False)
     #! non-model fields
-    defaultPromo = serializers.PrimaryKeyRelatedField(queryset=DefaultBenefit.objects.all())
-    conditions = serializers.JSONField()
+    defaultPromo = serializers.PrimaryKeyRelatedField(queryset=DefaultPromotion.objects.all(), required=False)
+    conditions = serializers.JSONField(required=False)
     
     def validate(self, data):
         if 'defaultPromo' not in data and ['name', 'benefit_type', 'benefit_value','conditions'] not in data:
@@ -92,16 +92,18 @@ class PromotionSerializer(serializers.Serializer):
         return data
     
     def create(self, validated_data):
-        if (defaultpromo := validated_data.get('defaultPromo')):
+        if (defaultpromo := validated_data.pop('defaultPromo')):
             if 'name' not in validated_data: validated_data['name'] = defaultpromo.name
             if 'benefit_type' not in validated_data: validated_data['benefit_type'] = defaultpromo.benefit_type 
-            if 'benefit_value' not in validated_data: validated_data['benefit_value'] = defaultpromo.benefit_value 
+            if 'benefit_value' not in validated_data: validated_data['benefit_value'] = str(defaultpromo.benefit_value)
+            print (f'default promo benefit_value: {defaultpromo.benefit_value}, type: {type(defaultpromo.benefit_value)}')
+            print (f'benefit_value: {validated_data["benefit_value"]}, type: {type(validated_data["benefit_value"])}')
             if 'conditions' not in validated_data: 
                 validated_data['conditions'] = [{ 
                     'cond_type': item.cond_type,
                     'cond_choice': item.cond_choice,
                     'cond_min': item.cond_min }
-                    for item in defaultpromo.conditions_set.all()]
+                    for item in defaultpromo.promocondition_set.all()]
         conditions = validated_data.pop('conditions')
         
         instance_class = self
@@ -114,7 +116,6 @@ class PromotionSerializer(serializers.Serializer):
             args.update({field: validated_data.get(field)})
         instance = model.objects.create(**args)
         instance.save()
-        
         id = instance.id
         conditions = [{"promotion": id, **item} for item in conditions]
         serialier = PromoConditionSerializer(data=conditions, many=True)
@@ -167,6 +168,7 @@ class PromotionDetailSerializer(PromotionSerializer):
         }
         
 class PromoConditionSerializer(serializers.Serializer):
+    
     promotion = serializers.PrimaryKeyRelatedField(queryset=Promotion.objects.all(), required=False)
     defaultPromo = serializers.PrimaryKeyRelatedField(queryset=DefaultPromotion.objects.all(), required=False) 
     

@@ -1,4 +1,5 @@
 from benefit.models import ConfigBenefit, DefaultBenefit, UserBenefit
+from promotion.models import PromoCondition, Promotion
 from quest.models import Quest
 from rank.models import Rank, RankConfig
 from shop.models import Buyer, PointGain, Progress
@@ -68,6 +69,14 @@ class DefaultCouponAdmin(admin.ModelAdmin):
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
     list_display = ['id', 'default', 'shop', 'exchange_point', 'usage_limit']
+
+@admin.register(PromoCondition)
+class PromoConditionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'promotion', 'defaultPromo', 'cond_type', 'cond_choice', 'cond_min']
+
+@admin.register(Promotion)
+class PromotionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'shop', 'name', 'start_date', 'end_date', 'benefit_type', 'benefit_value']
 
 for app in apps.get_app_configs():
     for model_name, model in app.models.items(): 

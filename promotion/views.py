@@ -83,7 +83,7 @@ class PromotionShopView(mixins.ListModelMixin,
     
     queryset = model_class.objects.all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['id', 'user', 'benefit']
+    search_fields = ['shop__name']
     ordering_fields = ['created_at', 'updated_at']
     
     def get(self, request, *args, **kwargs):
@@ -107,20 +107,16 @@ class PromotionShopView(mixins.ListModelMixin,
     def post(self, request, *args, **kwargs):
         #* data : { [{ name, start_date, end_date, type, value, defaultPromo, condtions:list[dict] }] }
         items = request.data.get('items') if 'items' in request.data else [request.data]
-        items = [item.update({'shop': request.user.shop.id}) for item in items]
-        serializer_ = []
-        for item in items:
-            serializer = self.serializer_class(data=item)
-            if not serializer.is_valid():
-                data = ViewUtils.gen_response(data=serializer.errors)
-                return Response(data, data['status'])
-            serializer_.append(serializer)
+        shop = Shop.objects.filter(merchant=request.user).first()
+        items = [item for item in items if item.update({'shop': shop.id}) or 1]
+        serializer = self.serializer_class(data=items, many=True)
         try:
-            [item.save() for item in serializer_]
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
         except Exception as e:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
             return Response(data, data['status'])
-        data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message=f'{self.model_class.__name__} created successfully.', data=f'{self.model_class.__name__} created: {len(serializer_)}')
+        data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message=f'{self.model_class.__name__} created successfully.', data=f'{self.model_class.__name__} created: {len(serializer.data)}')
         return Response(data=data, status=data['status'])
         
     def put(self, request, *args, **kwargs):

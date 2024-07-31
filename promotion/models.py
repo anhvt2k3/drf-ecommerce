@@ -7,15 +7,15 @@ from eco_sys.mixins import SoftDeleteModelMixin
 class DefaultPromotion(SoftDeleteModelMixin, models.Model):
     name = models.CharField(max_length=200)
     benefit_type = models.CharField(max_length=200)
-    benefit_value = models.FloatField(default=0)
+    benefit_value = models.TextField(default=0) #@ containing problem can be fixed by split(',') before using
     
     description = models.TextField(default="A Sale program created by Admin for all Shop to utilize.")
 
 class Promotion(SoftDeleteModelMixin, models.Model):
     shop = models.ForeignKey('shop.Shop', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
-    start_date = models.DateTimeField(default=timezone.now)
-    end_date = models.DateTimeField(default=timezone.now() + timedelta(days=1))
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
     benefit_type = models.CharField(max_length=200)
     benefit_value = models.TextField(default=0) #@ containing problem can be fixed by split(',') before using
     
