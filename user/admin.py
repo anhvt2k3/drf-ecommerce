@@ -72,11 +72,11 @@ class CouponAdmin(admin.ModelAdmin):
 
 @admin.register(PromoCondition)
 class PromoConditionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'promotion', 'defaultPromo', 'cond_type', 'cond_choice', 'cond_min']
+    list_display = ['id', 'promotion', 'defaultPromo', 'cond_type', 'cond_choice', 'cond_min', 'cond_max']
 
 @admin.register(Promotion)
 class PromotionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'shop', 'name', 'start_date', 'end_date', 'benefit_type', 'benefit_value']
+    list_display = ['id', 'shop', 'name', 'priority', 'start_date', 'end_date', 'benefit_type', 'benefit_value']
 
 for app in apps.get_app_configs():
     for model_name, model in app.models.items(): 

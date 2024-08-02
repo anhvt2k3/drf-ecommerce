@@ -14,6 +14,7 @@ class DefaultPromotion(SoftDeleteModelMixin, models.Model):
 class Promotion(SoftDeleteModelMixin, models.Model):
     shop = models.ForeignKey('shop.Shop', on_delete=models.CASCADE)
     name = models.CharField(max_length=200)
+    priority = models.IntegerField(default=5)
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     benefit_type = models.CharField(max_length=200)
@@ -29,7 +30,9 @@ class PromoCondition(SoftDeleteModelMixin, models.Model):
     cond_type = models.CharField(max_length=200)
     cond_choice = models.JSONField(default=list) ## usecase: 'product_range'=[1,2,3,4,5]
     cond_min = models.FloatField(default=0)
+    cond_max = models.FloatField(default=0)
     """
+        cond_type = 'applies' -> cond_max = 1 ## apply 1 time only
         cond_type = 'product_range' -> cond_choices = [1,2,3,4,5]
         cond_type = 'charge' -> cond_min = 70.25 ## apply to whole order
         cond_type = 'quantity' -> cond_min = 1
@@ -39,3 +42,6 @@ class PromoCondition(SoftDeleteModelMixin, models.Model):
     """
     
     description = models.TextField(default="A condition that must be met for the Promotion to be applied.")
+    
+    def __str__(self) -> str:
+        return f'Promo[{self.cond_type}]'

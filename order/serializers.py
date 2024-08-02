@@ -24,7 +24,7 @@ class OrderSerializer(serializers.Serializer):
     def validate_coupon(self, value):
         if value: 
             if (exchange_record := PointExchange.objects.filter(coupon=value.id).first()):
-                print ('remain usage:', exchange_record.remain_usage)
+                # print ('remain usage:', exchange_record.remain_usage)
                 if exchange_record.remain_usage <= 0:
                     raise serializers.ValidationError('Coupon is out of usage!')
             else:
@@ -385,7 +385,6 @@ class CheckoutSerializer(serializers.Serializer):
         
         from . import tasks
         items = []
-        sub_total = 0
         for item in data.get('items'):
             product = Product.objects.filter(id=item.get('product')).first()
             if not product:
@@ -395,12 +394,14 @@ class CheckoutSerializer(serializers.Serializer):
             items.append({'product': product, 'quantity': item.get('quantity')})
         binded_items = self.bind_shop(items, data.get('coupon'))
         for shop in binded_items.keys():
+            binded_items[shop]['user'] = user
+            promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
             binded_items[shop]['final_charge'] = tasks.apply_discounts(
-                benefits=tasks.retrieve_discounts(user, shop, coupon=binded_items[shop]['coupon']),
+                benefits=tasks.retrieve_discounts(user, shop, coupon=binded_items[shop]['coupon'],promo=promo),
                 total_charge=binded_items[shop]['total_charge']
             )   
-        
         return binded_items
+    
     def to_representation(self, instance):
         """
         {
@@ -422,7 +423,7 @@ class CheckoutSerializer(serializers.Serializer):
         representation = {}
         i = 1
 
-        for shop, data in self.validated_data.items():
+        for shop, data in self.validated_data.items(): #@ dict(zip(shop, data)) can be used to reverse the effect of self.validated_data.items()
             items_representation = []
             for item in data['items']:
                 items_representation.append({
@@ -431,11 +432,14 @@ class CheckoutSerializer(serializers.Serializer):
                     'quantity': item['quantity'],
                     'total_charge': item['charge']
                 })
-
+            buyer = data['user'].buyer_set.filter(shop=shop).first()
             representation[f'Checkout {i}'] = {
                 'shop': shop.name,
+                'user rank': buyer.rank.rank.name if buyer else None,
                 'items': items_representation,
                 'sub_total': data['total_charge'],
+                'coupon': data['coupon'].id if data['coupon'] else None,
+                'promotion': data['promotion'].id if data['promotion'] else None,
                 'total': data.get('final_charge', data['total_charge']),
             }
             

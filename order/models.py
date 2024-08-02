@@ -15,11 +15,18 @@ ORDER_STATUS_CHOICES = [
 class Order(SoftDeleteModelMixin, models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
+    promotion = models.ForeignKey('promotion.Promotion', on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=10, choices=ORDER_STATUS_CHOICES, default='pending')
     total_charge = models.FloatField(default=0.00) #@ charges that is changed by Order Items
     final_charge = models.FloatField(default=0.00) #@ charges that is changed by Discount
-    
+
     description = models.TextField(default="An Order which is created by User that consists of many Order Items.")
+    
+    #todo can be improve with this
+    # shop = models.ForeignKey('shop.Shop', on_delete=models.DO_NOTHING, blank=True, null=True)    
+    
+    # def get_shop(self):
+    #     return self.orderitem_set.first().product.shop
     
     def reset_total_charge(self):
         total_charge = OrderItem.objects.filter(order=self).aggregate(
@@ -51,7 +58,7 @@ class OrderItem(SoftDeleteModelMixin, models.Model):
     
 class OrderBenefit(SoftDeleteModelMixin, models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    config_benefit = models.ForeignKey('benefit.ConfigBenefit', on_delete=models.DO_NOTHING)
+    config_benefit = models.ForeignKey('benefit.ConfigBenefit', on_delete=models.DO_NOTHING, blank=True, null=True)
     #* source of the given benefit (can be from coupon or rank)
     #* format: "Coupon[<id>]" or "Rank[<id>]"
     source = models.TextField()
