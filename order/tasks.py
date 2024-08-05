@@ -1,20 +1,17 @@
 import threading
 
-from django.db.models import Q
+from django.db.models import Q, F
 from django.db import transaction
 from django.utils import timezone
 
 from benefit.models import ConfigBenefit, UserBenefit
 from benefit.serializers import UserBenefitSerializer
-from coupon.models import Coupon
 from exchange.models import PointExchange
 from order.models import Order
 from promotion.models import Promotion
 from quest.models import Quest
-from quest.serializers import QuestSerializer
 from shop.models import Buyer, PointGain, Progress
 from shop.serializers import BuyerSerializer, PointGainSerializer, ProgressSerializer
-from user.models import User
 
 loyalty_lock = threading.Lock()
 def loyalty_logics(order : Order):
@@ -95,8 +92,9 @@ def updateRank(shop, buyer, cur_rank):
     if rankcfg and rankcfg.id != cur_rank.id:
         buyer.rank = rankcfg
         ## deactivate old benefits
-        seri_ = [UserBenefitSerializer(item, data={'is_activate':False}, partial=True) for item in UserBenefit.objects.filter(user=buyer.user, shop=shop, benefit__rank_required=cur_rank)]
-        [seri.save() for seri in seri_ if seri.is_valid(raise_exception=True)]
+        UserBenefit.objects.filter(user=buyer.user, shop=shop, benefit__rank_required=cur_rank).update(is_activate=False)
+        # seri_ = [UserBenefitSerializer(item, data={'is_activate':False}, partial=True) for item in UserBenefit.objects.filter(user=buyer.user, shop=shop, benefit__rank_required=cur_rank)]
+        # [seri.save() for seri in seri_ if seri.is_valid(raise_exception=True)]
         cur_rank = rankcfg
         ## create new benefits
         benefits = ConfigBenefit.objects.filter(rank_required=rankcfg)
@@ -128,7 +126,9 @@ def apply_benefit(order_id):
         coupon = order.coupon
         shop = order.orderitem_set.first().product.shop
         user = order.user
-        benefits = retrieve_discounts(user,shop,coupon=coupon,order=order)
+        promo = get_promo(user, order=order)
+        benefits = retrieve_discounts(user,shop,coupon=coupon,order=order,promo=promo)
+        order.promotion = promo
         order.final_charge = apply_discounts(benefits,float(order.total_charge),order=order)
         order.save()
 
@@ -157,7 +157,7 @@ def retrieve_discounts(user,shop,**kwargs):
     #! benefit comes from promotion
     if (promos := kwargs.get('promo')):
         benefits += [{
-                        # 'config_benefit': item,
+                        # 'config_benefit': 0,
                         'source': f'Promotion[{item.id}]',
                         'benefit_type': item.benefit_type,
                         'benefit':item.benefit_value 
@@ -165,6 +165,7 @@ def retrieve_discounts(user,shop,**kwargs):
                 for item in [promos]] if promos else []
     #! benefit comes from coupon
     if (coupon := kwargs.get('coupon')):
+        PointExchange.objects.filter(buyer__user=user,coupon=coupon.id).update(remain_usage=F('remain_usage')-1)
         benefits += [{  
                         'config_benefit': item,
                         'source': f'Coupon[{coupon.id}]',
@@ -182,7 +183,7 @@ def get_promo(user, **kwargs) -> Promotion:
                         'product': item.product,
                         'quantity': item.quantity,
                         'price': item.product.price,
-                        'charge': item.product.price * item.quantity
+                        'charge': item.total_charge
                     }
                 for item in order.orderitem_set.all()]
     elif (cart := kwargs.get('cart')):

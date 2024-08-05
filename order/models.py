@@ -22,11 +22,12 @@ class Order(SoftDeleteModelMixin, models.Model):
 
     description = models.TextField(default="An Order which is created by User that consists of many Order Items.")
     
-    #todo can be improve with this
-    # shop = models.ForeignKey('shop.Shop', on_delete=models.DO_NOTHING, blank=True, null=True)    
-    
-    # def get_shop(self):
-    #     return self.orderitem_set.first().product.shop
+    @property
+    def shop(self):
+        product_shop = self.orderitem_set.first().product.shop if self.orderitem_set.exists() else None
+        coupon_shop = self.coupon.shop if self.coupon else None
+        promotion_shop = self.promotion.shop if self.promotion else None
+        return product_shop or coupon_shop or promotion_shop
     
     def reset_total_charge(self):
         total_charge = OrderItem.objects.filter(order=self).aggregate(
@@ -37,7 +38,9 @@ class Order(SoftDeleteModelMixin, models.Model):
     
     def store_benefit(self, benefit):
         # create new OrderBenefit without identical source
-        if not OrderBenefit.objects.filter(order=self, source=benefit['source'], config_benefit=benefit['config_benefit']).exists():
+        if 'config_benefit' in benefit and not OrderBenefit.objects.filter(order=self, source=benefit['source'], config_benefit=benefit['config_benefit']).exists():
+            OrderBenefit.objects.create(order=self, **benefit)
+        elif not OrderBenefit.objects.filter(order=self, source=benefit['source']).exists():
             OrderBenefit.objects.create(order=self, **benefit)
             
     

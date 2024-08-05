@@ -182,98 +182,21 @@ class OrderUserView(generics.GenericAPIView):
             )
             return Response(data, data['status'])
     
-    #* data: { 1_order_item fields } 
-    #*    or { items: [{ 1_order_item fields }] }
-    #* || kwargs -> pk (id of Order instance)
-    
-    #* data:  
     def post(self, request, *args, **kwargs):
-        #* if there is no tags are used or all tags are false
-        if not (request.data.get('creating_with_items') or request.data.get('using_cart')):
-            items = request.data.get('items') if 'items' in request.data else [request.data]
-            [item.update({'user':request.user.id}) for item in items]
-            serializers = OrderUserSerializer(data=items, many=True)
-            try:
-                if serializers.is_valid(raise_exception=True):
-                    serializers.save()
-            except Exception as e:
-                data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
-                return Response(data, data['status'])
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='OrderItems created successfully.', data=f'Items created: {len(serializers.data)}')
-            return Response(data=data, status=data['status'])
-        
-        if request.data.get('using_cart'):
-            cart = Cart.objects.filter(user=request.user).first()
-            cartitems = CartItem.objects.filter(cart=cart)
-            items = [{ 'product': item.product.id, 'quantity': item.quantity } for item in cartitems]
-            # cart.delete()
-            
-        elif request.data.get('creating_with_items'):
-            items = request.data.get('items') if 'items' in request.data else [request.data]
-        #? Optimized Option: create Order Items before Order (Order needs less validation)
+        items = request.data.get('items') if 'items' in request.data else [request.data]
+        [item.update({'user':request.user.id}) for item in items]
+        serializer = OrderUserSerializer(data=items, many=True)
         try:
-            items, orders_seri = self.insert_order_per_shop(items, request.user, request.data.get('coupon', 0))
-        except Exception as e:
-            data = ViewUtils.gen_response(message='An error occurred while creating Order.', data=str(e))
-            return Response(data, data['status'])
-        try:
-            serializers = OrderItemSerializer(data=items, many=True)
-            if serializers.is_valid(raise_exception=True):
-                serializers.save()
-        except Exception as e:
-            [order.delete() for order in orders_seri]
-            data = ViewUtils.gen_response(message='An error occurred while creating Order Items.', data=str(e))
-            return Response(data, data['status'])
-        data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='OrderItems created successfully.', data=f'Items created: {len(serializers.data)}')
-        return Response(data=data, status=data['status'])
-    
-    def insert_order_per_shop(self, items:list, user, coupon_id=0):
-        """
-            takes a list of orderitems and them with their appropriate order
-        """
-        order_of = {}
-        items_ = []
-        coupon = Coupon.objects.filter(id=coupon_id).first()
-        for item in items:
-            shop = Product.objects.filter(id=item['product']).first().shop
-            if shop not in order_of.keys():
-                # print (f'coupon: {coupon} shop: {shop}')
-                serializer = OrderSerializer(data={'user':user.id, 'coupon':coupon.id}) if coupon and shop.id == coupon.shop.id else OrderSerializer(data={'user':user.id})
-                serializer.is_valid(raise_exception=True)
-                order_of[shop] = serializer.save()
-                # print (f'{serializer.initial_data} created')
-            item['order'] = order_of[shop].id
-            items_.append(item)
-        return items_, order_of.values()
-    
-    def put(self, request, *args, **kwargs):
-        if 'pk' in kwargs and 'items' in request.data:
-            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Please decide only 1 way to inform the id at a time.')
-            return Response(data, data['status'])
-        elif 'pk' not in kwargs and 'items' not in request.data:
-            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Item id not provided.')
-            return Response(data, data['status'])
-        
-        else:
-            items = request.data.get('items') if 'items' in request.data else [{ 'id': kwargs['pk'], **request.data }]
-            serializer_ = []
-            for item in items:
-                instance = Order.objects.filter(id=item['id'], user=request.user).first()
-                if not instance:
-                    data = ViewUtils.gen_response(success=False, status=HTTP_404_NOT_FOUND, message='Item not found.')
-                    return Response(data, data['status'])
-                serializer = OrderUserSerializer(instance, data=item, partial=True)
-                if not serializer.is_valid():
-                    data = ViewUtils.gen_response(data=serializer.errors)
-                    return Response(data, data['status'])
-                serializer_.append(serializer)
-            try:
-                [item.save() for item in serializer_]
-            except Exception as e:
-                data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
-                return Response(data, data['status'])
-            data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Items updated successfully.', data=f'Number of Items updated: {len(serializer_)}')
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+            data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Items created successfully.', data=serializer.data)
             return Response(data, status=data['status'])
+        except serializers.ValidationError as e:
+            data = ViewUtils.gen_response(message='An error occurred while validating.', data=e.detail)
+            return Response(data, data['status'])
+        except Exception as e:
+            data = ViewUtils.gen_response(message='An error occurred while creating.', data=str(e))
+            return Response(data, data['status'])
 
     #@ restore 1/many orders with all its orderitems
     def patch(self, request, *args, **kwargs):

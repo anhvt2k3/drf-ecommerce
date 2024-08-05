@@ -1,3 +1,4 @@
+from cart.models import Cart, CartItem
 from exchange.models import PointExchange
 from .models import *
 from .utils.utils import *
@@ -15,9 +16,17 @@ class OrderSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=ORDER_STATUS_CHOICES, default='pending')
     coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(), required=False)
     
+    using_cart = serializers.BooleanField(default=False)
+    creating_with_items = serializers.BooleanField(default=False)
+    orderitems = serializers.JSONField(default=list) #* format: [{'product':<id>, 'quantity':<int>}]
+    
     def validate(self, data):
         if self.instance and self.instance.status != 'pending':
             raise serializers.ValidationError('Order đã được xác nhận, không thể thay đổi thông tin!')
+        if not (data.get('creating_with_items') or data.get('using_cart')):
+            items = data.get('orderitems', [])
+            if not items:
+                raise serializers.ValidationError("Items must be provided if not using cart or creating with items.")
         # print (f'data: {data}')
         return data
     
@@ -32,19 +41,53 @@ class OrderSerializer(serializers.Serializer):
         return value
     
     def create(self, validated_data):
-        input_fields = ['user', 'coupon']
-        model = Order
-        validated_data = validated_data
-        ## create_manually
-        args = {}
-        for field in input_fields:
-            args.update({field: validated_data.get(field)})
-        instance = model.objects.create(**args)
-        instance.save()
+        using_cart = validated_data.get('using_cart', False)
+        creating_with_items = validated_data.get('creating_with_items', False)
+        items = validated_data.get('orderitems', [])
+        user = validated_data.get('user')
+        coupon = validated_data.get('coupon')
         
-        if 'coupon' in validated_data:
-            PointExchange.objects.filter(coupon=validated_data.get('coupon').id).update(remain_usage=models.F('remain_usage')-1)
-        return instance     
+        if using_cart:
+            cart = Cart.objects.filter(user=user).first()
+            cartitems = CartItem.objects.filter(cart=cart)
+            items = [{'product': item.product.id, 'quantity': item.quantity} for item in cartitems]
+            # cart.delete() #! Optionally delete cart if required
+        elif creating_with_items:
+            items = validated_data.get('orderitems', [])
+
+        try:
+            orderitems, orders = self.bind_shopNcoupon(items=items, user=user, coupon=coupon)
+            orderitems_serializer = OrderItemSerializer(data=orderitems, many=True)
+            if orderitems_serializer.is_valid(raise_exception=True):
+                orderitems_serializer.save()
+        except Exception as e:
+        #? Optimized Option: create Order Items before Order (Order needs less validation)
+            if 'orders' in locals():
+                [order.hard_delete() for order in orders] #? using instance.delete cause OrderItem is deleted and Coupon usage is yet to be applied
+            raise Exception(e)
+        
+        for order in orders:
+            #@ these 2 threads should not have any dependency on each other
+            threading.Thread(target=apply_benefit, args=(order.id,)).start()
+            threading.Thread(target=loyalty_logics, args=(order,)).start()
+        
+        return orders
+
+    def bind_shopNcoupon(self, items, user, coupon):
+        """
+        Creates orders per shop based on the items and returns the items with associated order IDs.
+        """
+        order_of = {}
+        items_ = []
+        for item in items:
+            shop = Product.objects.filter(id=item['product']).first().shop
+            if shop not in order_of.keys():
+                args = {'user': user, 'coupon': coupon} if coupon and shop.id == coupon.shop.id else {'user': user}
+                instance = Order.objects.create(**args)
+                order_of[shop] = instance
+            item['order'] = order_of[shop].id
+            items_.append(item)
+        return items_, [order for order in order_of.values()]
     
     def update(self, instance :models.Model, validated_data):
         if 'coupon' in validated_data:
@@ -84,8 +127,8 @@ class OrderSerializer(serializers.Serializer):
     
     def delete(self, instance=None):
         instance = instance or self.instance
-        if instance.status != 'pending':
-            raise serializers.ValidationError('Order đã được xác nhận, không thể xóa!')
+        # if instance.status != 'pending':
+        #     raise serializers.ValidationError('Order đã được xác nhận, không thể xóa!')
         #@ cascade delete orderitems
         [OrderItemSerializer(item).delete() for item in instance.orderitem_set.all()]
         [benefit.delete() for benefit in instance.orderbenefit_set.all()] 
@@ -96,6 +139,8 @@ class OrderSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
+        if isinstance(instance, list):
+            return [self.to_representation(Order.objects.filter(id=order.id).first()) for order in instance]
         if instance.is_deleted:
             orderitems = OrderItem.deleted.filter(order=instance)
             orderbenefits = OrderBenefit.deleted.filter(order=instance)
@@ -108,7 +153,8 @@ class OrderSerializer(serializers.Serializer):
                 'shop': orderitems.first().product.shop.name if orderitems.first() else None,
                 'ordered_items': len(orderitems.all()),
                 'coupon': instance.coupon.id if instance.coupon else None,
-                'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in orderbenefits],
+                'promotion': instance.promotion.id if instance.promotion else None,
+                'applied benefits': [item.source for item in orderbenefits],
                 }
         return {
             **SerializerUtils.representation_dict_formater(
@@ -119,11 +165,14 @@ class OrderSerializer(serializers.Serializer):
             'shop': instance.orderitem_set.first().product.shop.name if instance.orderitem_set.first() else None,
             'ordered_items': len(instance.orderitem_set.all()),
             'coupon': instance.coupon.id if instance.coupon else None,
-            'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in instance.orderbenefit_set.all()],
+            'promotion': instance.promotion.id if instance.promotion else None,
+            'applied benefits': [item.source for item in instance.orderbenefit_set.all()],
         }
     
 class OrderDetailSerializer(OrderSerializer):
     def to_representation(self, instance):
+        if isinstance(instance, list):
+            return [self.to_representation(Order.objects.filter(id=order.id).first()) for order in instance]
         if instance.is_deleted:
             orderitems = OrderItem.deleted.filter(order=instance)
             orderbenefits = OrderBenefit.deleted.filter(order=instance)
@@ -136,7 +185,8 @@ class OrderDetailSerializer(OrderSerializer):
                 'shop': orderitems.first().product.shop.name if orderitems.first() else None,
                 'ordered_items': len(orderitems.all()),
                 'coupon': instance.coupon.id if instance.coupon else None,
-                'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in orderbenefits],
+                'promotion': instance.promotion.id if instance.promotion else None,
+                'applied benefits': [item.source for item in orderbenefits],
                 }
         return {
             **SerializerUtils.detail_dict_formater(
@@ -147,14 +197,15 @@ class OrderDetailSerializer(OrderSerializer):
             'shop': instance.orderitem_set.first().product.shop.name if instance.orderitem_set.first() else None,
             'ordered_items': len(instance.orderitem_set.all()),
             'coupon': instance.coupon.id if instance.coupon else None,
-            'applied benefits': [{item.config_benefit.default_benefit.benefit_type:item.config_benefit.config_amount} for item in instance.orderbenefit_set.all()],
+            'promotion': instance.promotion.id if instance.promotion else None,
+            'applied benefits': [item.source for item in instance.orderbenefit_set.all()],
         }
 
         
 class OrderUserSerializer(OrderSerializer):
     def validate(self, data):
         data = super().validate(data)
-        if data.get('status') and data['status'] not in ['processing']:
+        if data.get('status') and data['status'] not in ['pending']:
             raise serializers.ValidationError('You do not have permission to apply this state yourself!')
         return data
 
@@ -224,7 +275,6 @@ class OrderItemSerializer(serializers.Serializer):
         instance = model.objects.create(**args)
         instance.save()
 
-        threading.Thread(target=apply_benefit, args=(instance.order.id,)).start()
         return instance        
     
     def update(self, instance : OrderItem, validated_data):
@@ -260,13 +310,11 @@ class OrderItemSerializer(serializers.Serializer):
             instance.reset_total_charge()
             
 
-            # Update old order's total charge
+            # # Update old order's total charge
             old_order.reset_total_charge()
-            threading.Thread(target=apply_benefit, args=(old_order.id,)).start()
-            # If the order has changed, update new order's total charge
+            # # If the order has changed, update new order's total charge
             if old_order != new_order:
                 new_order.reset_total_charge()
-                threading.Thread(target=apply_benefit, args=(new_order.id,)).start()
 
         return instance
         
