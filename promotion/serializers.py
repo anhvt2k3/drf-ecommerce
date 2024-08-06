@@ -1,4 +1,5 @@
 from benefit.models import DefaultBenefit
+from notification.serializers import NotificationSerializer
 from shop.models import Shop
 from shop.serializers import ShopDetailSerializer, ShopSerializer
 from .models import *
@@ -36,6 +37,8 @@ class DefaultPromotionSerializer(serializers.Serializer):
         except Exception as e:
             instance.hard_delete()
             raise e
+        
+        
         return instance
     
     def update(self, instance, validated_data):
@@ -63,7 +66,7 @@ class DefaultPromotionSerializer(serializers.Serializer):
                 instance=instance),
             'conditions': [{
                             'type':item.cond_type,
-                            'choice': item.cond_choice,
+                            'choice': item.cond_choice if item.cond_choice else [],
                             'min':item.cond_min} for item in instance.promocondition_set.all()]
         }
 class DefaultPromotionDetailSerializer(DefaultPromotionSerializer):
@@ -96,13 +99,12 @@ class PromotionSerializer(serializers.Serializer):
             if 'name' not in validated_data: validated_data['name'] = defaultpromo.name
             if 'benefit_type' not in validated_data: validated_data['benefit_type'] = defaultpromo.benefit_type 
             if 'benefit_value' not in validated_data: validated_data['benefit_value'] = str(defaultpromo.benefit_value)
-            print (f'default promo benefit_value: {defaultpromo.benefit_value}, type: {type(defaultpromo.benefit_value)}')
-            print (f'benefit_value: {validated_data["benefit_value"]}, type: {type(validated_data["benefit_value"])}')
             if 'conditions' not in validated_data: 
                 validated_data['conditions'] = [{ 
                     'cond_type': item.cond_type,
                     'cond_choice': item.cond_choice,
-                    'cond_min': item.cond_min }
+                    'cond_min': item.cond_min,
+                    'cond_max': item.cond_max}
                     for item in defaultpromo.promocondition_set.all()]
         conditions = validated_data.pop('conditions')
         
@@ -116,15 +118,31 @@ class PromotionSerializer(serializers.Serializer):
             args.update({field: validated_data.get(field)})
         instance = model.objects.create(**args)
         instance.save()
-        id = instance.id
-        conditions = [{"promotion": id, **item} for item in conditions]
+        conditions = [{"promotion": instance.id, **item} for item in conditions]
         serialier = PromoConditionSerializer(data=conditions, many=True)
+        
+        notifications = [{
+            'recipient': item.user.id,
+            'shop': instance.shop.id,
+            'type': 'promotion-announcement',
+            'title': f'New Promotion {instance.name} from {instance.shop.name}',
+            'message': f'New Promotion {instance.name} from {instance.shop.name} is available now!',
+            'link': f'http://localhost:8000/promotion/{instance.id}',
+            'read_status': False,
+            'priority': 0,
+            'additional_data': {'promotion': instance.id}
+            } for item in instance.shop.buyer_set.all()]
+        notiseri = NotificationSerializer(data=notifications, many=True)
+        # print (f'notifications: {notifications}')
         try:
             if serialier.is_valid(raise_exception=True):
                 serialier.save()
+            if notiseri.is_valid(raise_exception=True):
+                notiseri.save()
         except Exception as e:
             instance.hard_delete()
             raise e
+        
         return instance
     
     def update(self, instance, validated_data):
@@ -142,6 +160,24 @@ class PromotionSerializer(serializers.Serializer):
     
     def delete(self, instance=None):
         instance = instance or self.instance
+        [PromoConditionSerializer(item).delete() for item in instance.promocondition_set.all()]
+        notifications = [{
+            'recipient': item.user.id,
+            'shop': instance.shop.id,
+            'type': 'promotion-deletion',
+            'title': f'Promotion {instance.name} is overdue',
+            'message': f'Promotion {instance.name} has just been overdue! Thank you for particapating.',
+            'link': f'http://localhost:8000/promotion/me/{instance.id}',
+            'read_status': False,
+            'priority': 0,
+            'additional_data': {'promotion': instance.id}
+            } for item in instance.shop.buyer_set.all()]
+        notiseri = NotificationSerializer(data=notifications, many=True)
+        try:
+            if notiseri.is_valid(raise_exception=True):
+                notiseri.save()
+        except Exception as e:
+            raise e
         instance.delete()
         return instance
     
@@ -175,6 +211,7 @@ class PromoConditionSerializer(serializers.Serializer):
     cond_type = serializers.CharField(max_length=200)
     cond_choice = serializers.JSONField(default=list)
     cond_min = serializers.FloatField(default=0)
+    cond_max = serializers.FloatField(default=0)
     """
         cond_type = 'product_range' -> cond_choices = [1,2,3,4,5]
         cond_type = 'charge' -> cond_min = 100

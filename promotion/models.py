@@ -28,7 +28,7 @@ class PromoCondition(SoftDeleteModelMixin, models.Model):
     defaultPromo = models.ForeignKey(DefaultPromotion, on_delete=models.CASCADE, blank=True, null=True)
     
     cond_type = models.CharField(max_length=200)
-    cond_choice = models.JSONField(default=list) ## usecase: 'product_range'=[1,2,3,4,5]
+    cond_choice = models.JSONField(default=list, blank=True, null=True) ## usecase: 'product_range'=[1,2,3,4,5]
     cond_min = models.FloatField(default=0)
     cond_max = models.FloatField(default=0)
     """

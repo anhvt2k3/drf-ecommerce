@@ -110,12 +110,14 @@ class PromotionShopView(mixins.ListModelMixin,
         shop = Shop.objects.filter(merchant=request.user).first()
         items = [item for item in items if item.update({'shop': shop.id}) or 1]
         serializer = self.serializer_class(data=items, many=True)
-        try:
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-        except Exception as e:
-            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
-            return Response(data, data['status'])
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        # try:
+        #     if serializer.is_valid(raise_exception=True):
+        #         serializer.save()
+        # except Exception as e:
+        #     data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
+        #     return Response(data, data['status'])
         data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message=f'{self.model_class.__name__} created successfully.', data=f'{self.model_class.__name__} created: {len(serializer.data)}')
         return Response(data=data, status=data['status'])
         

@@ -100,7 +100,7 @@ class OrderSerializer(serializers.Serializer):
         instance = instance 
         validated_data = validated_data
         # print ('validated_data: ',validated_data)
-        exclude_fields = ['id','coupon']
+        exclude_fields = ['id', 'coupon']
         #! Update instance with fields from validated_data without the exclude fields.
         instance_fields = [field.name for field in instance._meta.fields]
         fields = [field for field in validated_data.keys() if field not in exclude_fields and field in instance_fields]
