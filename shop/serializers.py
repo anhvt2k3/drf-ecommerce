@@ -141,7 +141,7 @@ class BuyerSerializer(serializers.Serializer):
         with transaction.atomic():
             [PointGainSerializer(point_gain).delete() for point_gain in instance.pointgain_set.all()]
             [UserBenefitSerializer(userbenefit).delete() for userbenefit in instance.user.userbenefit_set.filter(benefit__rank_required__shop=instance.shop)]
-            [OrderForceDeleteSerializer(order).delete() for order in instance.user.order_set.filter(orderitem__product__shop=instance.shop, status='processing')]
+            [OrderForceDeleteSerializer(order).delete() for order in instance.user.order_set.filter(orderitem__product__shop=instance.shop)]
             [PointExchangeSerializer(point_exchange).delete() for point_exchange in instance.pointexchange_set.filter(buyer=instance)]
             instance.delete()
         return instance

@@ -129,6 +129,7 @@ class PromotionSerializer(serializers.Serializer):
                     'cond_max': item.cond_max}
                     for item in defaultpromo.promocondition_set.all()]
         conditions = validated_data.pop('conditions')
+        notifications = validated_data.pop('notification')
         
         instance_class = self
         model = Promotion
@@ -144,8 +145,9 @@ class PromotionSerializer(serializers.Serializer):
         PromoCondition.objects.bulk_create([PromoCondition(**{**item, 'promotion': instance}) for item in conditions])
         #! Create notifications
         Notification.objects.bulk_create([
-            Notification(**item, **{'link': f'http://localhost:8000/promotion/{instance.id}','additional_data': {'promotion': instance.id}}) 
-                for item in validated_data['notification']])
+            Notification(item) for item in notifications 
+                if True and item.update({'link': f'http://localhost:8000/promotion/{instance.id}','additional_data': {'promotion': instance.id}})
+                ])
         
         return instance
     
@@ -225,8 +227,8 @@ class PromoConditionSerializer(serializers.Serializer):
         cond_type = 'item_quantity' -> cond_min = 1
     """
     def validate(self, data):
-        if 'promotion' not in data and 'defaultPromo' not in data:
-            raise serializers.ValidationError("Promotion or DefaultPromotion must be provided.")
+        # if 'promotion' not in data and 'defaultPromo' not in data:
+        #     raise serializers.ValidationError("Promotion or DefaultPromotion must be provided.")
         if 'promotion' in data and 'defaultPromo' in data:
             raise serializers.ValidationError("Promotion and DefaultPromotion cannot be provided together.")
         return data

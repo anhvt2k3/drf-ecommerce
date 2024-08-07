@@ -128,7 +128,10 @@ def apply_benefit(order_id):
         user = order.user
         promo = get_promo(user, order=order)
         benefits = retrieve_discounts(user,shop,coupon=coupon,order=order,promo=promo)
+        
+        #! log benefits
         order.promotion = promo
+        PointExchange.objects.filter(buyer__user=user,coupon=coupon.id).update(remain_usage=F('remain_usage')-1)
         order.final_charge = apply_discounts(benefits,float(order.total_charge),order=order)
         order.save()
 
@@ -165,7 +168,6 @@ def retrieve_discounts(user,shop,**kwargs):
                 for item in [promos]] if promos else []
     #! benefit comes from coupon
     if (coupon := kwargs.get('coupon')):
-        PointExchange.objects.filter(buyer__user=user,coupon=coupon.id).update(remain_usage=F('remain_usage')-1)
         benefits += [{  
                         'config_benefit': item,
                         'source': f'Coupon[{coupon.id}]',

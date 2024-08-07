@@ -15,3 +15,5 @@ class Quest(SoftDeleteModelMixin, models.Model):
     
     description = models.TextField(default="A Quest to be completed by User to earn points.")
     
+    def __str__(self) -> str:
+        return f'{self.shop.name}_{self.reward_point}pts'

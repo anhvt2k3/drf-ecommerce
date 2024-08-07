@@ -1,4 +1,5 @@
 from benefit.models import ConfigBenefit, DefaultBenefit, UserBenefit
+from exchange.models import PointExchange
 from promotion.models import PromoCondition, Promotion
 from quest.models import Quest
 from rank.models import Rank, RankConfig
@@ -28,15 +29,15 @@ class ProductAdmin(admin.ModelAdmin):
     
 @admin.register(PointGain)
 class PointGainAdmin(admin.ModelAdmin):
-    list_display = ['id', 'buyer', 'quest', 'current_rank', 'gain_point']
+    list_display = ['id', 'progress_info','buyer', 'quest', 'current_rank', 'gain_point']
     
 @admin.register(Progress)
 class ProgressAdmin(admin.ModelAdmin):
-    list_display = ['id', 'point_gain', 'prog_type', 'goal_value', 'progression']
+    list_display = ['id', 'quest', 'point_gain', 'prog_type', 'goal_value', 'progression']
 
 @admin.register(Buyer)
 class BuyerAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'shop', 'rank', 'total_point']
+    list_display = ['id', 'user', 'shop', 'rank', 'total_point', 'remaining_point']
 
 @admin.register(RankConfig)
 class RankConfigAdmin(admin.ModelAdmin):
@@ -77,7 +78,10 @@ class PromoConditionAdmin(admin.ModelAdmin):
 @admin.register(Promotion)
 class PromotionAdmin(admin.ModelAdmin):
     list_display = ['id', 'shop', 'name', 'priority', 'start_date', 'end_date', 'benefit_type', 'benefit_value']
-
+@admin.register(PointExchange)
+class PointExchangeAdmin(admin.ModelAdmin):
+    list_display = ['id', 'buyer', 'coupon', 'remain_usage']
+    
 for app in apps.get_app_configs():
     for model_name, model in app.models.items(): 
         try:

@@ -383,6 +383,7 @@ class OrderForceDeleteSerializer(OrderSerializer):
         instance = instance or self.instance
         #@ cascade delete orderitems
         [OrderItemForceDeleteSerializer(item).delete() for item in instance.orderitem_set.all()]
+        [benefit.delete() for benefit in instance.orderbenefit_set.all()]
         instance.delete()
         return instance
     
@@ -448,6 +449,7 @@ class CheckoutSerializer(serializers.Serializer):
         for shop in binded_items.keys():
             binded_items[shop]['user'] = user
             promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
+            print ('promo:', promo)
             binded_items[shop]['final_charge'] = tasks.apply_discounts(
                 benefits=tasks.retrieve_discounts(user, shop, coupon=binded_items[shop]['coupon'],promo=promo),
                 total_charge=binded_items[shop]['total_charge']
@@ -480,6 +482,7 @@ class CheckoutSerializer(serializers.Serializer):
             for item in data['items']:
                 items_representation.append({
                     'product': item['product'].name,
+                    'product_id': item['product'].id,
                     'price': item['price'],
                     'quantity': item['quantity'],
                     'total_charge': item['charge']
