@@ -10,7 +10,7 @@ class NotificationSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=100)
     message = serializers.CharField()
     link = serializers.URLField(default=None)
-    read_status = serializers.BooleanField(default=False)
+    read_status = serializers.BooleanField(default=False,read_only=True)
     priority = serializers.IntegerField(default=0)
     additional_data = serializers.JSONField(default=None)
 
@@ -18,13 +18,12 @@ class NotificationSerializer(serializers.Serializer):
         return Notification.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
-        instance.recipient = validated_data.get('recipient', instance.recipient)
-        instance.sender = validated_data.get('sender', instance.sender)
+        # instance.recipient = validated_data.get('recipient', instance.recipient)
+        # instance.sender = validated_data.get('sender', instance.sender)
         instance.type = validated_data.get('type', instance.type)
         instance.title = validated_data.get('title', instance.title)
         instance.message = validated_data.get('message', instance.message)
         instance.link = validated_data.get('link', instance.link)
-        instance.read_status = validated_data.get('read_status', instance.read_status)
         instance.priority = validated_data.get('priority', instance.priority)
         instance.additional_data = validated_data.get('additional_data', instance.additional_data)
         instance.save()

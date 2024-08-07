@@ -147,6 +147,7 @@ class BuyerSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
+        next_rank = instance.shop.rankconfig_set.filter(required_point__gt=instance.total_point).order_by('required_point').first()
         return {
             **SerializerUtils.representation_dict_formater(
                 input_fields=['total_point'],
@@ -155,12 +156,15 @@ class BuyerSerializer(serializers.Serializer):
             'shop': instance.shop.name,
             'shop_id': instance.shop.id,
             'rank': instance.rank.rank.name,
+            'next_rank': next_rank.rank.name if next_rank else None,
+            'next_rank_point': next_rank.required_point if next_rank else None,
             'user': instance.user.username,
             'user_id': instance.user.id,
         }
         
 class BuyerDetailSerializer(BuyerSerializer):
     def to_representation(self, instance):
+        next_rank = instance.shop.rankconfig_set.filter(required_point__gt=instance.total_point).order_by('required_point').first()
         return {
             **SerializerUtils.detail_dict_formater(
                 input_fields=['total_point'],
@@ -169,6 +173,8 @@ class BuyerDetailSerializer(BuyerSerializer):
             'shop': instance.shop.name,
             'shop_id': instance.shop.id,
             'rank': instance.rank.rank.name,
+            'next_rank': next_rank.rank.name if next_rank else None,
+            'next_rank_point': next_rank.required_point if next_rank else None,
             'user': instance.user.username,
             'user_id': instance.user.id,
         }

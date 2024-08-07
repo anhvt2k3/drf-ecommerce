@@ -1,4 +1,5 @@
 from benefit.models import DefaultBenefit
+from notification.models import Notification
 from notification.serializers import NotificationSerializer
 from shop.models import Shop
 from shop.serializers import ShopDetailSerializer, ShopSerializer
@@ -14,6 +15,14 @@ class DefaultPromotionSerializer(serializers.Serializer):
     #! non-model fields
     conditions = serializers.JSONField()
     
+    def validate(self, attrs):
+        if not self.instance:
+            promocondseri = PromoConditionSerializer(data=attrs['conditions'],many=True)
+            if not promocondseri.is_valid():
+                raise serializers.ValidationError(promocondseri.errors)
+            attrs['conditions'] = promocondseri.validated_data
+        return attrs
+    
     def create(self, validated_data):
         conditions = validated_data.pop('conditions')
         
@@ -28,17 +37,7 @@ class DefaultPromotionSerializer(serializers.Serializer):
         instance = model.objects.create(**args)
         instance.save()
         
-        id = instance.id
-        conditions = [{"defaultPromo": id, **item} for item in conditions]
-        serialier = PromoConditionSerializer(data=conditions, many=True)
-        try:
-            if serialier.is_valid(raise_exception=True):
-                serialier.save()
-        except Exception as e:
-            instance.hard_delete()
-            raise e
-        
-        
+        PromoCondition.objects.bulk_create([PromoCondition(**{**item, 'defaultPromo': instance}) for item in conditions])
         return instance
     
     def update(self, instance, validated_data):
@@ -89,9 +88,32 @@ class PromotionSerializer(serializers.Serializer):
     defaultPromo = serializers.PrimaryKeyRelatedField(queryset=DefaultPromotion.objects.all(), required=False)
     conditions = serializers.JSONField(required=False)
     
+    # notify_buyers = serializers.BooleanField(default=False)
+    notification = serializers.JSONField(default=dict, required=False)
+    
     def validate(self, data):
-        if 'defaultPromo' not in data and ['name', 'benefit_type', 'benefit_value','conditions'] not in data:
-            raise serializers.ValidationError("DefaultPromotion or full Promotion infos must be provided.")
+        if not self.instance:
+            #! Check if defaultPromo or full Promotion infos are provided.
+            if 'defaultPromo' not in data and ['name', 'benefit_type', 'benefit_value','conditions'] not in data:
+                raise serializers.ValidationError("DefaultPromotion or full Promotion infos must be provided.")
+            #! Validate conditions
+            promocondseri = PromoConditionSerializer(data=data['conditions'],many=True)
+            if not promocondseri.is_valid():
+                raise serializers.ValidationError(promocondseri.errors)
+            data['conditions'] = promocondseri.validated_data
+            #! Validate notification
+            notification = data.pop('notification', {})
+            notifications = [{
+                'recipient': item.user.id,
+                'shop': data['shop'].id,
+                'type': 'promotion-announcement',
+                'title': notification.get("title", f'New Promotion {data["name"]} from {data["shop"].name}'),
+                'message': notification.get("message", f'New Promotion {data["name"]} from {data["shop"].name} is available now!'),
+                'priority': notification.get("priority", 0),
+                        } for item in data['shop'].buyer_set.all()]
+            if not (notiseri := NotificationSerializer(data=notifications, many=True)).is_valid():
+                raise serializers.ValidationError(notiseri.errors)
+            data['notification'] = notiseri.validated_data
         return data
     
     def create(self, validated_data):
@@ -118,30 +140,12 @@ class PromotionSerializer(serializers.Serializer):
             args.update({field: validated_data.get(field)})
         instance = model.objects.create(**args)
         instance.save()
-        conditions = [{"promotion": instance.id, **item} for item in conditions]
-        serialier = PromoConditionSerializer(data=conditions, many=True)
-        
-        notifications = [{
-            'recipient': item.user.id,
-            'shop': instance.shop.id,
-            'type': 'promotion-announcement',
-            'title': f'New Promotion {instance.name} from {instance.shop.name}',
-            'message': f'New Promotion {instance.name} from {instance.shop.name} is available now!',
-            'link': f'http://localhost:8000/promotion/{instance.id}',
-            'read_status': False,
-            'priority': 0,
-            'additional_data': {'promotion': instance.id}
-            } for item in instance.shop.buyer_set.all()]
-        notiseri = NotificationSerializer(data=notifications, many=True)
-        # print (f'notifications: {notifications}')
-        try:
-            if serialier.is_valid(raise_exception=True):
-                serialier.save()
-            if notiseri.is_valid(raise_exception=True):
-                notiseri.save()
-        except Exception as e:
-            instance.hard_delete()
-            raise e
+        #! Create conditions
+        PromoCondition.objects.bulk_create([PromoCondition(**{**item, 'promotion': instance}) for item in conditions])
+        #! Create notifications
+        Notification.objects.bulk_create([
+            Notification(**item, **{'link': f'http://localhost:8000/promotion/{instance.id}','additional_data': {'promotion': instance.id}}) 
+                for item in validated_data['notification']])
         
         return instance
     

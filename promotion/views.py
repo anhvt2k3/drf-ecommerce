@@ -54,6 +54,7 @@ class PromotionUserView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
+            
             respn = ViewUtils.paginated_get_response(
                 self,
                 request,

@@ -67,8 +67,9 @@ class DefaultCouponDetailSerializer(DefaultCouponSerializer):
     
 class CouponSerializer(serializers.Serializer):
     default = serializers.PrimaryKeyRelatedField(queryset=DefaultCoupon.objects.all())
-    benefit_set = serializers.PrimaryKeyRelatedField(queryset=ConfigBenefit.objects.all(), many=True, required=False)
     shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.all())
+    
+    benefit_set = serializers.PrimaryKeyRelatedField(queryset=ConfigBenefit.objects.all(), many=True, required=False) ## Input: list[id] // Output: list[ConfigBenefit]
     exchange_point = serializers.IntegerField(required=False)
     usage_limit = serializers.IntegerField(required=False)
     
