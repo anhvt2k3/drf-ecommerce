@@ -186,17 +186,17 @@ class OrderUserView(generics.GenericAPIView):
         items = request.data.get('items') if 'items' in request.data else [request.data]
         [item.update({'user':request.user.id}) for item in items]
         serializer = OrderUserSerializer(data=items, many=True)
-        try:
-            if serializer.is_valid(raise_exception=True):
-                serializer.save()
-            data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Items created successfully.', data=serializer.data)
-            return Response(data, status=data['status'])
-        except serializers.ValidationError as e:
-            data = ViewUtils.gen_response(message='An error occurred while validating.', data=e.detail)
-            return Response(data, data['status'])
-        except Exception as e:
-            data = ViewUtils.gen_response(message='An error occurred while creating.', data=str(e))
-            return Response(data, data['status'])
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Items created successfully.', data=serializer.data)
+        return Response(data, status=data['status'])
+        # try:
+        # except serializers.ValidationError as e:
+        #     data = ViewUtils.gen_response(message='An error occurred while validating.', data=e.detail)
+        #     return Response(data, data['status'])
+        # except Exception as e:
+        #     data = ViewUtils.gen_response(message='An error occurred while creating.', data=str(e))
+        #     return Response(data, data['status'])
 
     #@ restore 1/many orders with all its orderitems
     def patch(self, request, *args, **kwargs):

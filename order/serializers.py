@@ -56,30 +56,40 @@ class OrderSerializer(serializers.Serializer):
             items = validated_data.get('orderitems', [])
         if not (orderitemseri := OrderItemSerializer(data=items, many=True)).is_valid():
             raise serializers.ValidationError(orderitemseri.errors)
-        orderitems, orders = self.bind_shopNcoupon(items=orderitemseri.validated_data, user=user, coupon=coupon)
-        OrderItem.objects.bulk_create(orderitems)
-        for order in orders:
+        if not self.isNoDuplicateProduct(orderitemseri.validated_data):
+            raise serializers.ValidationError('Duplicate Product in Order Items!')
+        shopmap = self.bind_shopNcoupon(items=orderitemseri.validated_data, user=user, coupon=coupon)
+        ordermap = self.bind_orderitemsNorders(shopmap)
+        for order in ordermap.keys():
             #@ these 2 threads should not have any dependency on each other
             threading.Thread(target=apply_benefit, args=(order.id,)).start()
             threading.Thread(target=loyalty_logics, args=(order,)).start()
         
-        return orders
+        return list(ordermap.keys())
 
     def bind_shopNcoupon(self, items, user, coupon):
         """
         Creates orders per shop based on the items and returns the items with associated order IDs.
         """
         order_of = {}
-        items_ = []
         for item in items:
             shop = item['product'].shop
             if shop not in order_of.keys():
                 args = {'user': user, 'coupon': coupon} if coupon and shop.id == coupon.shop.id else {'user': user}
-                instance = Order.objects.create(**args)
-                order_of[shop] = instance
-            item['order'] = order_of[shop]
-            items_.append(OrderItem(**item))
-        return items_, [order for order in order_of.values()]
+                order_of[shop] = (Order(**args), [])
+            order_of[shop][1].append(item)
+        return order_of
+    
+    def isNoDuplicateProduct(self, orderitems):
+        products = [item['product'] for item in orderitems]
+        return len(products) == len(set(products))
+    
+    def bind_orderitemsNorders(self, ordermap):
+        instmap = {}
+        for order, orderitems in ordermap.values():
+            order.save()
+            instmap[order] = [OrderItemSerializer().create(validated_data={'order':order,**item}) for item in orderitems]
+        return instmap
     
     def update(self, instance :models.Model, validated_data):
         if 'coupon' in validated_data:
@@ -232,32 +242,29 @@ class OrderItemSerializer(serializers.Serializer):
         if price and price != product.price:
             raise serializers.ValidationError('Giá sản phẩm không hợp lệ!')
         
-        if not self.instance:
-            if order.coupon and order.coupon.shop != product.shop:
-                raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Coupon Shop: {order.coupon.shop.name}')
-            if order.orderitem_set.first() and product.shop != order.orderitem_set.first().product.shop:
-                raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Order Shop: {order.orderitem_set.first().product.shop.name}')
-            if OrderItem.objects.filter(order=order, product=product).exists():
-                raise serializers.ValidationError(f'Sản phẩm [{product.id}] đã có trong Order!')
+        # if not self.instance:
+            # if order.coupon and order.coupon.shop != product.shop:
+            #     raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Coupon Shop: {order.coupon.shop.name}')
+            # if order.orderitem_set.first() and product.shop != order.orderitem_set.first().product.shop:
+            #     raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Order Shop: {order.orderitem_set.first().product.shop.name}')
+            # if OrderItem.objects.filter(order=order, product=product).exists():
+            #     raise serializers.ValidationError(f'Sản phẩm [{product.id}] đã có trong Order!')
         
         return data
     
     #* required fields: product, quantity, order
     def create(self, validated_data : dict):
+        print ('validated_data:', validated_data)
         product = Product.objects.filter(id=validated_data.get('product').id).first()
         order = Order.objects.filter(id=validated_data.get('order').id).first()
         quantity = validated_data.get('quantity')
         
         validated_data['price'] = product.price
         validated_data['total_charge'] = validated_data.get('price') * quantity
-        # print (f'Before: product[{product.id}]newstock={product.in_stock}; Order[{order.id}]newTC={order.total_charge}')
         product.in_stock = product.in_stock - validated_data.get('quantity')
         order.final_charge = order.total_charge = float(order.total_charge) + validated_data.get('total_charge')
-        # print ('-create: total charge', order.total_charge)
-        # print (f'After: product[{product.id}]newstock={product.in_stock}; Order[{order.id}]newTC={order.total_charge}')
         product.save()
         order.save()
-        # print (f'After save: product[{product.id}]newstock={product.in_stock}; Order[{order.id}]newTC={order.total_charge}')
         
         input_fields = ['product', 'quantity', 'price', 'total_charge', 'order']
         model = OrderItem
