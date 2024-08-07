@@ -54,18 +54,10 @@ class OrderSerializer(serializers.Serializer):
             # cart.delete() #! Optionally delete cart if required
         elif creating_with_items:
             items = validated_data.get('orderitems', [])
-
-        try:
-            orderitems, orders = self.bind_shopNcoupon(items=items, user=user, coupon=coupon)
-            orderitems_serializer = OrderItemSerializer(data=orderitems, many=True)
-            if orderitems_serializer.is_valid(raise_exception=True):
-                orderitems_serializer.save()
-        except Exception as e:
-        #? Optimized Option: create Order Items before Order (Order needs less validation)
-            if 'orders' in locals():
-                [order.hard_delete() for order in orders] #? using instance.delete cause OrderItem is deleted and Coupon usage is yet to be applied
-            raise Exception(e)
-        
+        if not (orderitemseri := OrderItemSerializer(data=items, many=True)).is_valid():
+            raise serializers.ValidationError(orderitemseri.errors)
+        orderitems, orders = self.bind_shopNcoupon(items=orderitemseri.validated_data, user=user, coupon=coupon)
+        OrderItem.objects.bulk_create(orderitems)
         for order in orders:
             #@ these 2 threads should not have any dependency on each other
             threading.Thread(target=apply_benefit, args=(order.id,)).start()
@@ -80,13 +72,13 @@ class OrderSerializer(serializers.Serializer):
         order_of = {}
         items_ = []
         for item in items:
-            shop = Product.objects.filter(id=item['product']).first().shop
+            shop = item['product'].shop
             if shop not in order_of.keys():
                 args = {'user': user, 'coupon': coupon} if coupon and shop.id == coupon.shop.id else {'user': user}
                 instance = Order.objects.create(**args)
                 order_of[shop] = instance
-            item['order'] = order_of[shop].id
-            items_.append(item)
+            item['order'] = order_of[shop]
+            items_.append(OrderItem(**item))
         return items_, [order for order in order_of.values()]
     
     def update(self, instance :models.Model, validated_data):
@@ -211,11 +203,13 @@ class OrderUserSerializer(OrderSerializer):
 
 class OrderItemSerializer(serializers.Serializer):
     #@ modify queryset to minimized access range of Entity
-    order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all())
+    order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all(), required=False)
+    
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     quantity = serializers.IntegerField()
-    price = serializers.FloatField(default=0)
-    total_charge = serializers.FloatField(default=0)
+    
+    price = serializers.FloatField(required=False)
+    total_charge = serializers.FloatField(required=False)
     
     def validate(self, data : dict):
         #@ validate any fields that are given
