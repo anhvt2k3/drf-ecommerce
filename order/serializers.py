@@ -54,12 +54,15 @@ class OrderSerializer(serializers.Serializer):
             # cart.delete() #! Optionally delete cart if required
         elif creating_with_items:
             items = validated_data.get('orderitems', [])
+        #! validate items
         if not (orderitemseri := OrderItemSerializer(data=items, many=True)).is_valid():
             raise serializers.ValidationError(orderitemseri.errors)
         if not self.isNoDuplicateProduct(orderitemseri.validated_data):
             raise serializers.ValidationError('Duplicate Product in Order Items!')
+        
         shopmap = self.bind_shopNcoupon(items=orderitemseri.validated_data, user=user, coupon=coupon)
-        ordermap = self.bind_orderitemsNorders(shopmap)
+        ordermap = self.save_to_db(shopmap)
+        
         for order in ordermap.keys():
             #@ these 2 threads should not have any dependency on each other
             threading.Thread(target=apply_benefit, args=(order.id,)).start()
@@ -84,7 +87,7 @@ class OrderSerializer(serializers.Serializer):
         products = [item['product'] for item in orderitems]
         return len(products) == len(set(products))
     
-    def bind_orderitemsNorders(self, ordermap):
+    def save_to_db(self, ordermap):
         instmap = {}
         for order, orderitems in ordermap.values():
             order.save()

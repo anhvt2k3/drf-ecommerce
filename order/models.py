@@ -49,7 +49,7 @@ class OrderItem(SoftDeleteModelMixin, models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.DO_NOTHING)
     quantity = models.IntegerField()
-    price = models.DecimalField(max_digits=18, decimal_places=5, default=0)
+    price = models.FloatField(default=0.00)
     total_charge = models.FloatField(default=0.00)
     
     description = models.TextField(default="An Order Item which is created by User that linked to a Product.")
