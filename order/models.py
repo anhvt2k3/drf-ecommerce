@@ -29,6 +29,10 @@ class Order(SoftDeleteModelMixin, models.Model):
         promotion_shop = self.promotion.shop if self.promotion else None
         return product_shop or coupon_shop or promotion_shop
     
+    @property
+    def benefits(self):
+        return [str(item) for item in self.orderbenefit_set.all()]
+    
     def reset_total_charge(self):
         total_charge = OrderItem.objects.filter(order=self).aggregate(
             total=models.Sum(models.F('price') * models.F('quantity'))
@@ -65,3 +69,6 @@ class OrderBenefit(SoftDeleteModelMixin, models.Model):
     #* source of the given benefit (can be from coupon or rank)
     #* format: "Coupon[<id>]" or "Rank[<id>]"
     source = models.TextField()
+    
+    def __str__(self):
+        return f"{self.source}"

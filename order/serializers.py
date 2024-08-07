@@ -257,7 +257,6 @@ class OrderItemSerializer(serializers.Serializer):
     
     #* required fields: product, quantity, order
     def create(self, validated_data : dict):
-        print ('validated_data:', validated_data)
         product = Product.objects.filter(id=validated_data.get('product').id).first()
         order = Order.objects.filter(id=validated_data.get('order').id).first()
         quantity = validated_data.get('quantity')
@@ -433,7 +432,7 @@ class CheckoutSerializer(serializers.Serializer):
     def validate(self, data):
         user = data.get('user')
         coupon = data.get('coupon')
-        if coupon and coupon not in Coupon.objects.filter(pointexchange__buyer__user=user):
+        if coupon and not Coupon.objects.filter(pointexchange__buyer__user=user, id=coupon.id).exists():
             raise serializers.ValidationError('User does not possess this Coupon!')
         
         from . import tasks
@@ -449,7 +448,6 @@ class CheckoutSerializer(serializers.Serializer):
         for shop in binded_items.keys():
             binded_items[shop]['user'] = user
             promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
-            print ('promo:', promo)
             binded_items[shop]['final_charge'] = tasks.apply_discounts(
                 benefits=tasks.retrieve_discounts(user, shop, coupon=binded_items[shop]['coupon'],promo=promo),
                 total_charge=binded_items[shop]['total_charge']

@@ -188,7 +188,7 @@ class OrderUserView(generics.GenericAPIView):
         serializer = OrderUserSerializer(data=items, many=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Items created successfully.', data=serializer.data)
+        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Items created successfully.', data=f'Number of items created: {len(serializer.data)}')
         return Response(data, status=data['status'])
         # try:
         # except serializers.ValidationError as e:
