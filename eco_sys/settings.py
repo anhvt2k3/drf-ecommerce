@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions',
     'django_filters',
+    'flashsale',
     'notification',
     'exchange',
     'shop',
