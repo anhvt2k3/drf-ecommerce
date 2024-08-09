@@ -146,7 +146,7 @@ class PromotionSerializer(serializers.Serializer):
         #! Create notifications
         Notification.objects.bulk_create([
             Notification(item) for item in notifications 
-                if True and item.update({'link': f'http://localhost:8000/promotion/{instance.id}','additional_data': {'promotion': instance.id}})
+                if True and item.update({'link': f'http://localhost:8000/promo/me/{instance.id}','additional_data': {'promotion': instance.id}})
                 ])
         
         return instance
@@ -173,7 +173,7 @@ class PromotionSerializer(serializers.Serializer):
             'type': 'promotion-deletion',
             'title': f'Promotion {instance.name} is overdue',
             'message': f'Promotion {instance.name} has just been overdue! Thank you for particapating.',
-            'link': f'http://localhost:8000/promotion/me/{instance.id}',
+            'link': f'http://localhost:8000/promo/me/{instance.id}',
             'read_status': False,
             'priority': 0,
             'additional_data': {'promotion': instance.id}
@@ -196,7 +196,8 @@ class PromotionSerializer(serializers.Serializer):
             'conditions': [{
                             'type':item.cond_type,
                             'choice': item.cond_choice,
-                            'min':item.cond_min} for item in instance.promocondition_set.all()]
+                            'min':item.cond_min,
+                            'max':item.cond_max} for item in instance.promocondition_set.all()]
         }
         
 class PromotionDetailSerializer(PromotionSerializer):
@@ -270,7 +271,7 @@ class PromoConditionSerializer(serializers.Serializer):
             'promotion_id': instance.promotion.id or instance.defaultPromo.id,
             'is_default': instance.defaultPromo is not None,
             **SerializerUtils.representation_dict_formater(
-                input_fields=['cond_type', 'cond_choice', 'cond_min'],
+                input_fields=['cond_type', 'cond_choice', 'cond_min', 'cond_max'],
                 instance=instance),
         }
 

@@ -59,7 +59,7 @@ class PromotionUserView(generics.GenericAPIView):
                 self,
                 request,
                 self.serializer_class,
-                self.model_class.objects.filter(shop__buyer__user=request.user, id=kwargs['pk'])
+                self.model_class.objects.filter(id=kwargs['pk'])
             )
             return Response(respn, status=respn['status'])
         else:

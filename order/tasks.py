@@ -188,7 +188,7 @@ def get_promo(user, **kwargs) -> Promotion:
                         'charge': item.total_charge
                     }
                 for item in order.orderitem_set.all()]
-        print (f'Items {items}')
+        # print (f'Items {items}')
     elif (cart := kwargs.get('cart')):
         shop, items = cart
     else:
@@ -210,7 +210,7 @@ def promocond_check(promo, items, user):
             if promo.order_set.filter(user=user).count() >= condition.cond_max:
                 return False
         elif condition.cond_type == 'charge':
-            print (f'Charge {sum([item["charge"] for item in items])} < {condition.cond_min}')
+            # print (f'Charge {sum([item["charge"] for item in items])} < {condition.cond_min}')
             if sum([item['charge'] for item in items]) < condition.cond_min:
                 return False
         elif condition.cond_type == 'quantity':

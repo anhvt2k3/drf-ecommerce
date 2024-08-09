@@ -186,11 +186,11 @@ class OrderUserView(generics.GenericAPIView):
         items = request.data.get('items') if 'items' in request.data else [request.data]
         [item.update({'user':request.user.id}) for item in items]
         serializer = OrderUserSerializer(data=items, many=True)
+        # try:
         if serializer.is_valid(raise_exception=True):
             serializer.save()
         data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Items created successfully.', data=f'Number of items created: {len(serializer.data)}')
         return Response(data, status=data['status'])
-        # try:
         # except serializers.ValidationError as e:
         #     data = ViewUtils.gen_response(message='An error occurred while validating.', data=e.detail)
         #     return Response(data, data['status'])
@@ -270,7 +270,7 @@ class OrderItemUserView(generics.GenericAPIView):
                 self,
                 request,
                 self.serializer_class,
-                self.model_class.deleted.filter(order__in=orders)
+                self.model_class.deleted.filter(order__in=Order.deleted.filter(user=request.user))
             )
             return Response(respn, status=respn['status'])
         elif 'pk' in kwargs:

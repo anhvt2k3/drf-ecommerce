@@ -164,7 +164,7 @@ class CartItemUserView(generics.ListAPIView):
             items = request.data.get('items') if 'items' in request.data else [{ 'id': kwargs['pk'], **request.data }]
             serializer_ = []
             for item in items:
-                instance = CartItem.objects.filter(id=item['id'],cart=Cart.objects.filter(user=request.user)).first()
+                instance = CartItem.objects.filter(id=item['id'],cart=Cart.objects.filter(user=request.user).first()).first()
                 if not instance:
                     data = ViewUtils.gen_response(success=False, status=HTTP_404_NOT_FOUND, message='CartItem not found.')
                     return Response(data, data['status'])

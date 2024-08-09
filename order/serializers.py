@@ -432,8 +432,11 @@ class CheckoutSerializer(serializers.Serializer):
     def validate(self, data):
         user = data.get('user')
         coupon = data.get('coupon')
-        if coupon and not Coupon.objects.filter(pointexchange__buyer__user=user, id=coupon.id).exists():
-            raise serializers.ValidationError('User does not possess this Coupon!')
+        if coupon:
+            if not Coupon.objects.filter(pointexchange__buyer__user=user, id=coupon.id).exists():
+                raise serializers.ValidationError('User does not possess this Coupon!')
+            if PointExchange.objects.filter(coupon=coupon).first().remain_usage <= 0:
+                raise serializers.ValidationError('Coupon is out of usage!')
         
         from . import tasks
         items = []
