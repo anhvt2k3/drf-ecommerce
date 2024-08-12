@@ -407,7 +407,6 @@ class OrderItemUserView(generics.GenericAPIView):
             return Response(data, data['status'])
 
 
-from django.db.models import Count
 
 class OrderItemManageView(
     mixins.ListModelMixin, mixins.UpdateModelMixin,
@@ -484,8 +483,8 @@ class OrderItemManageView(
         except Exception as e:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
             return Response(data, data['status'])
-            data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Order Items updated successfully.', data=f'Number of Order Items updated: {len(serializer_)}')
-            return Response(data, status=data['status'])
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Order Items updated successfully.', data=f'Number of Order Items updated: {len(serializer_)}')
+        return Response(data, status=data['status'])
     
     def patch(self, request, *args, **kwargs):
         if 'pk' in kwargs and 'items' in request.data:

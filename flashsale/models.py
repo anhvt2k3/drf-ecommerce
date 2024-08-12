@@ -12,7 +12,7 @@ class Flashsale(SoftDeleteModelMixin, models.Model):
     
 class FlashsaleLimit(SoftDeleteModelMixin, models.Model):
     type = models.CharField(max_length=200)
-    value = models.FloatField(default=0)
+    value = models.TextField()
     unit = models.CharField(max_length=200)
     
 class FlashsaleProduct(SoftDeleteModelMixin, models.Model):
