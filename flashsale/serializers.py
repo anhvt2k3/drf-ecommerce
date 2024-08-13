@@ -178,20 +178,6 @@ class FlashsaleSerializer(serializers.Serializer):
             for product in products:
                 if product['product'].shop != data['shop']:
                     raise serializers.ValidationError('Product does not belong to the shop')
-                data['conditions'] += [
-                    {
-                        'type': 'max-stock',
-                        'min': 0,
-                        'max': product['stock'],
-                        'choice': [product['product'].id]   
-                    },
-                    {
-                        'type': 'max-purchase',
-                        'min': 0,
-                        'max': product['sale_limit'],
-                        'choice': [product['product'].id]
-                    }
-                ]
         ## validate with FlashsaleLimit
         prod_limit = FlashsaleLimit.objects.all()
         for limit in prod_limit:

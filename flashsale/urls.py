@@ -39,16 +39,14 @@ urlpatterns = [
         {
             "product": 101,
             "stock": 500,
-            "sale_price": ,
-            "sale_limit": 
+            "sale_price": 15,
+            "sale_limit": 5
         }
     ],
     "conditions": [
         {
-            "type": ,
-            "min": ,
-            "max": ,
-            "choice": 
+            "type": "applies",
+            "max": 2,
         }
     ]
 }
