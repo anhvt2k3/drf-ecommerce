@@ -53,7 +53,7 @@ class SerializerUtils:
             
             `id` is always included.
         """
-        args = { 'id':instance.id, 'created_at':instance.created_at, 'updated_at':instance.updated_at, 'description':instance.description } 
+        args = { 'id':instance.id }
         if 'id' in input_fields: input_fields.remove('id')
         
         for field in input_fields:

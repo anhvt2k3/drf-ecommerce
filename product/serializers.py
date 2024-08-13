@@ -1,3 +1,4 @@
+
 from shop.models import Shop
 from .models import *
 from .utils.serializer_utils import SerializerUtils
@@ -51,7 +52,7 @@ class ProductSerializer(serializers.Serializer):
             **SerializerUtils.representation_dict_formater(
                 input_fields=['name', 'price', 'in_stock'],
                 instance=instance),
-            'shop': instance.shop.name,
+            'shop': instance.shop.name if instance.shop else None,
             'category': instance.category.name if instance.category else None,
             'view_times': instance.viewitem_set.count(),
             'cart_times': instance.cartitem_set.count(),
@@ -60,15 +61,20 @@ class ProductSerializer(serializers.Serializer):
         
 class ProductDetailSerializer(ProductSerializer):
     def to_representation(self, instance):
+        from cart.serializers import CartItemSerializer
+        from order.serializers import OrderItemSerializer
+        from view.serializers import ViewItemSerializer
+        from category.serializers import CategorySerializer
+        from shop.serializers import ShopSerializer
         return {
             **SerializerUtils.detail_dict_formater(
                 input_fields=['name', 'price', 'in_stock'],
                 instance=instance),
-            'shop': instance.shop.name,
-            'category': instance.category.name if instance.category else None,
-            'view_times': instance.viewitem_set.count(),
-            'cart_times': instance.cartitem_set.count(),
-            'order_times': instance.orderitem_set.count(),
+            'shop': ShopSerializer(instance.shop).data if instance.shop else None,
+            'category': CategorySerializer(instance.category).data if instance.category else None,
+            'viewed_as_item': ViewItemSerializer(instance.viewitem_set.all(), many=True).data,
+            'carted_as_item': CartItemSerializer(instance.cartitem_set.all(), many=True).data,
+            'ordered_as_item': OrderItemSerializer(instance.orderitem_set.all(), many=True).data,
         }
         
 class ProductUserSerializer(ProductSerializer):
@@ -77,7 +83,7 @@ class ProductUserSerializer(ProductSerializer):
             **SerializerUtils.representation_dict_formater(
                 input_fields=['name', 'price', 'in_stock'],
                 instance=instance),
-            'shop': instance.shop.name,
+            'shop': instance.shop.name if instance.shop else None,
             'category': instance.category.name if instance.category else None,
         }
         

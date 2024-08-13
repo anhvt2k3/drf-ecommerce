@@ -85,6 +85,13 @@ class FlashsaleProductSerializer(serializers.Serializer):
     sale_limit = serializers.IntegerField(default=0) # limit quantity per buyer
     
     def validate(self, data):
+        if self.instance: return data
+        if data['sale_limit'] > data['stock']:
+            raise serializers.ValidationError('Sale limit is over the stock')
+        if data['sale_price'] > data['product'].price:
+            raise serializers.ValidationError('Sale price is over the product price')
+        if data['stock'] > data['product'].in_stock:
+            raise serializers.ValidationError('Stock is over the product stock')
         return data
     
     def update(self, instance, validated_data):
@@ -159,15 +166,32 @@ class FlashsaleSerializer(serializers.Serializer):
     start_date = serializers.DateTimeField()
     end_date = serializers.DateTimeField()
     
-    products = FlashsaleProductSerializer(many=True, required=False)
-    conditions = FlashsaleConditionSerializer(many=True, required=False)
+    products = FlashsaleProductSerializer(many=True)
+    conditions = FlashsaleConditionSerializer(many=True)
     
     def validate(self, data):
+        if self.instance: 
+            return data
+        
         ## validate Product integrity with Shop
         if (products := data.get('products')):
             for product in products:
                 if product['product'].shop != data['shop']:
                     raise serializers.ValidationError('Product does not belong to the shop')
+                data['conditions'] += [
+                    {
+                        'type': 'max-stock',
+                        'min': 0,
+                        'max': product['stock'],
+                        'choice': [product['product'].id]   
+                    },
+                    {
+                        'type': 'max-purchase',
+                        'min': 0,
+                        'max': product['sale_limit'],
+                        'choice': [product['product'].id]
+                    }
+                ]
         ## validate with FlashsaleLimit
         prod_limit = FlashsaleLimit.objects.all()
         for limit in prod_limit:

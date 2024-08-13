@@ -67,6 +67,8 @@ class FlashsaleShopView(generics.GenericAPIView):
         
     def post(self, request, *args, **kwargs):
         items = request.data['items'] if 'items' in request.data else [request.data]
+        shop = Shop.objects.filter(merchant=request.user).first()
+        items = [{ 'shop': shop.id, **item } for item in items]
         serializer = FlashsaleSerializer(data=items, many=True)
         if not serializer.is_valid():
             data=ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Flashsale validation failed',data=serializer.errors)
@@ -217,7 +219,7 @@ class FlashsaleLimitManageView(generics.GenericAPIView):
             data=ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='FlashsaleLimit validation failed',data=serializer.errors)
             return Response(data, status=data['status'])
         serializer.save()
-        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='FlashsaleLimit created successfully',data=f'Item created: {serializer.data}')
+        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='FlashsaleLimit created successfully',data=f'Items created: {len(serializer.data)}')
         return Response(data, status=data['status'])
     
     def put(self, request, *args, **kwargs):
