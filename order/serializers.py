@@ -1,5 +1,6 @@
 from cart.models import Cart, CartItem
 from exchange.models import PointExchange
+from flashsale.models import Flashsale, FlashsaleProduct
 from .models import *
 from .utils.utils import *
 
@@ -8,6 +9,161 @@ from product.models import Product
 from .tasks import loyalty_logics,apply_benefit
 import threading
 
+class OrderItemSerializer(serializers.Serializer):
+    #@ modify queryset to minimized access range of Entity
+    order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all(), required=False)
+    
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    quantity = serializers.IntegerField()
+    
+    price = serializers.FloatField(required=False)
+    total_charge = serializers.FloatField(required=False)
+    
+    def validate(self, data : dict):
+        #@ validate any fields that are given
+        product = data.get('product') or (self.instance.product if self.instance else None)
+        order = data.get('order') or (self.instance.order if self.instance else None)
+        quantity = data.get('quantity') or (self.instance.quantity if self.instance else None)
+        
+        if product and order:
+            if (order.orderitem_set.first() and product.shop != order.orderitem_set.first().product.shop) or (order.coupon and order.coupon.shop != product.shop):
+                raise serializers.ValidationError(f'Product is not applicable for this Order! Product Shop: {product.shop.name}; Order Shop: {order.orderitem_set.first().product.shop.name}')
+        if order:
+            if order.status != 'pending':
+                raise serializers.ValidationError('Order đã được xác nhận, không thể thay đổi sản phẩm!')
+        if quantity:
+            if quantity <= 0:
+                raise serializers.ValidationError('Số lượng sản phẩm không hợp lệ!')
+            if quantity > product.in_stock:
+                raise serializers.ValidationError('Số lượng sản phẩm trong kho không đủ!')
+        
+        # if not self.instance:
+            # if order.coupon and order.coupon.shop != product.shop:
+            #     raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Coupon Shop: {order.coupon.shop.name}')
+            # if order.orderitem_set.first() and product.shop != order.orderitem_set.first().product.shop:
+            #     raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Order Shop: {order.orderitem_set.first().product.shop.name}')
+            # if OrderItem.objects.filter(order=order, product=product).exists():
+            #     raise serializers.ValidationError(f'Sản phẩm [{product.id}] đã có trong Order!')
+        data['price'] = data.get('price', product.price) 
+        data['total_charge'] = data['price'] * quantity 
+        
+        return data
+    
+    #* required fields: product, quantity, order
+    def create(self, validated_data : dict):
+        product = Product.objects.filter(id=validated_data.get('product').id).first()
+        order = Order.objects.filter(id=validated_data.get('order').id).first()
+        
+        product.in_stock = product.in_stock - validated_data.get('quantity')
+        order.final_charge = order.total_charge = float(order.total_charge) + validated_data.get('total_charge')
+        product.save()
+        order.save()
+        
+        input_fields = ['product', 'quantity', 'price', 'total_charge', 'order']
+        model = OrderItem
+        validated_data = validated_data
+        ## create_manually
+        args = {}
+        for field in input_fields:
+            args.update({field: validated_data.get(field)})
+        instance = model.objects.create(**args)
+        instance.save()
+
+        return instance        
+    
+    def update(self, instance : OrderItem, validated_data):
+        if instance.order.status != 'pending':
+            raise serializers.ValidationError('Order đã được xác nhận, không thể thay đổi sản phẩm!')
+        from django.db import transaction
+        with transaction.atomic():
+            old_order = instance.order
+            old_product = instance.product
+            old_quantity = instance.quantity
+
+            new_order = validated_data.get('order', instance.order)
+            new_product = validated_data.get('product', instance.product)
+            new_quantity = validated_data.get('quantity', instance.quantity)
+
+            # Update inventory
+            if old_product != new_product:
+                old_product.in_stock += old_quantity
+                old_product.save()
+                new_product.in_stock -= new_quantity
+                new_product.save()
+            else:
+                quantity_difference = new_quantity - old_quantity
+                new_product.in_stock -= quantity_difference
+                new_product.save()
+
+            # Update OrderItem
+            instance.order = new_order
+            instance.product = new_product
+            instance.price = new_product.price
+            instance.quantity = new_quantity
+            instance.save() 
+            instance.reset_total_charge()
+
+            # # Update old order's total charge
+            old_order.reset_total_charge()
+            # # If the order has changed, update new order's total charge
+            if old_order != new_order:
+                new_order.reset_total_charge()
+
+        return instance
+        
+    def delete(self, instance=None):
+        instance = instance or self.instance
+        if instance.order.status != 'pending':
+            raise serializers.ValidationError('Order đã được xác nhận, không thể xóa sản phẩm!')
+        # details = f'newstock={instance.product.in_stock}+{instance.quantity}; newTC={instance.order.total_charge}-{instance.total_charge}'
+        # raise serializers.ValidationError(detail=details)
+        instance.product.in_stock += instance.quantity
+        instance.order.total_charge = float(instance.order.total_charge) - float(instance.total_charge)
+        instance.order.save()
+        instance.product.save()
+        
+        instance.delete()
+        return instance
+    
+    def restore(self, instance=None):
+        instance = instance or self.instance
+        if instance.product.in_stock < instance.quantity:
+            raise serializers.ValidationError('Số lượng sản phẩm trong kho không đủ!')
+        instance.product.in_stock -= instance.quantity
+        instance.order.total_charge = float(instance.order.total_charge) + float(instance.total_charge)
+        instance.order.save()
+        instance.product.save()
+        instance.restore()
+        return instance
+    
+    def to_representation(self, instance):
+        #if instance.is_deleted: return {'This item is deleted.'}
+        return {
+            **SerializerUtils.representation_dict_formater(
+                ['quantity', 'total_charge'],
+                instance=instance
+            ),
+            'order': instance.order.id,
+            'product_id': instance.product.id,
+            'product_name': instance.product.name,
+            'product_price': instance.product.price,
+            'product_instock': instance.product.in_stock,
+        }
+
+class OrderItemDetailSerializer(OrderItemSerializer):
+    def to_representation(self, instance):
+        #if instance.is_deleted: return {'This item is deleted.'}
+        return {
+            **SerializerUtils.detail_dict_formater(
+                ['quantity', 'total_charge'],
+                instance=instance
+            ),
+            'order': instance.order.id,
+            'product_id': instance.product.id,
+            'product_name': instance.product.name,
+            'product_price': instance.product.price,
+            'product_instock': instance.product.in_stock,
+        }
 
 class OrderSerializer(serializers.Serializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
@@ -15,10 +171,11 @@ class OrderSerializer(serializers.Serializer):
     final_charge = serializers.FloatField(default=0.00, read_only=True)
     status = serializers.ChoiceField(choices=ORDER_STATUS_CHOICES, default='pending')
     coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(), required=False)
+    flashsale = serializers.PrimaryKeyRelatedField(queryset=Flashsale.objects.all(), required=False)
     
     using_cart = serializers.BooleanField(default=False)
     creating_with_items = serializers.BooleanField(default=False)
-    orderitems = serializers.JSONField(default=list) #* format: [{'product':<id>, 'quantity':<int>}]
+    orderitems = OrderItemSerializer(many=True) #* format: [{'product':<id>, 'quantity':<int>}]
     
     def validate(self, data):
         if self.instance and self.instance.status != 'pending':
@@ -212,169 +369,7 @@ class OrderUserSerializer(OrderSerializer):
         data = super().validate(data)
         if data.get('status') and data['status'] not in ['pending']:
             raise serializers.ValidationError('You do not have permission to apply this state yourself!')
-        return data
-
-class OrderItemSerializer(serializers.Serializer):
-    #@ modify queryset to minimized access range of Entity
-    order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all(), required=False)
-    
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
-    quantity = serializers.IntegerField()
-    
-    price = serializers.FloatField(required=False)
-    total_charge = serializers.FloatField(required=False)
-    
-    def validate(self, data : dict):
-        #@ validate any fields that are given
-        product = data.get('product') or (self.instance.product if self.instance else None)
-        order = data.get('order') or (self.instance.order if self.instance else None)
-        quantity = data.get('quantity') or (self.instance.quantity if self.instance else None)
-        price = data.get('price')
-        
-        if product and order:
-            if (order.orderitem_set.first() and product.shop != order.orderitem_set.first().product.shop) or (order.coupon and order.coupon.shop != product.shop):
-                raise serializers.ValidationError(f'Product is not applicable for this Order! Product Shop: {product.shop.name}; Order Shop: {order.orderitem_set.first().product.shop.name}')
-        if order:
-            if order.status != 'pending':
-                raise serializers.ValidationError('Order đã được xác nhận, không thể thay đổi sản phẩm!')
-        if quantity:
-            if quantity <= 0:
-                raise serializers.ValidationError('Số lượng sản phẩm không hợp lệ!')
-            if quantity > product.in_stock:
-                raise serializers.ValidationError('Số lượng sản phẩm trong kho không đủ!')
-        if price and price != product.price:
-            raise serializers.ValidationError('Giá sản phẩm không hợp lệ!')
-        
-        # if not self.instance:
-            # if order.coupon and order.coupon.shop != product.shop:
-            #     raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Coupon Shop: {order.coupon.shop.name}')
-            # if order.orderitem_set.first() and product.shop != order.orderitem_set.first().product.shop:
-            #     raise serializers.ValidationError(f'This Product and the Order are not in the same Shop! Order Shop: {order.orderitem_set.first().product.shop.name}')
-            # if OrderItem.objects.filter(order=order, product=product).exists():
-            #     raise serializers.ValidationError(f'Sản phẩm [{product.id}] đã có trong Order!')
-        
-        return data
-    
-    #* required fields: product, quantity, order
-    def create(self, validated_data : dict):
-        product = Product.objects.filter(id=validated_data.get('product').id).first()
-        order = Order.objects.filter(id=validated_data.get('order').id).first()
-        quantity = validated_data.get('quantity')
-        
-        validated_data['price'] = product.price
-        validated_data['total_charge'] = validated_data.get('price') * quantity
-        product.in_stock = product.in_stock - validated_data.get('quantity')
-        order.final_charge = order.total_charge = float(order.total_charge) + validated_data.get('total_charge')
-        product.save()
-        order.save()
-        
-        input_fields = ['product', 'quantity', 'price', 'total_charge', 'order']
-        model = OrderItem
-        validated_data = validated_data
-        ## create_manually
-        args = {}
-        for field in input_fields:
-            args.update({field: validated_data.get(field)})
-        instance = model.objects.create(**args)
-        instance.save()
-
-        return instance        
-    
-    def update(self, instance : OrderItem, validated_data):
-        if instance.order.status != 'pending':
-            raise serializers.ValidationError('Order đã được xác nhận, không thể thay đổi sản phẩm!')
-        from django.db import transaction
-        with transaction.atomic():
-            old_order = instance.order
-            old_product = instance.product
-            old_quantity = instance.quantity
-
-            new_order = validated_data.get('order', instance.order)
-            new_product = validated_data.get('product', instance.product)
-            new_quantity = validated_data.get('quantity', instance.quantity)
-
-            # Update inventory
-            if old_product != new_product:
-                old_product.in_stock += old_quantity
-                old_product.save()
-                new_product.in_stock -= new_quantity
-                new_product.save()
-            else:
-                quantity_difference = new_quantity - old_quantity
-                new_product.in_stock -= quantity_difference
-                new_product.save()
-
-            # Update OrderItem
-            instance.order = new_order
-            instance.product = new_product
-            instance.price = new_product.price
-            instance.quantity = new_quantity
-            instance.save() 
-            instance.reset_total_charge()
-            
-
-            # # Update old order's total charge
-            old_order.reset_total_charge()
-            # # If the order has changed, update new order's total charge
-            if old_order != new_order:
-                new_order.reset_total_charge()
-
-        return instance
-        
-    def delete(self, instance=None):
-        instance = instance or self.instance
-        if instance.order.status != 'pending':
-            raise serializers.ValidationError('Order đã được xác nhận, không thể xóa sản phẩm!')
-        # details = f'newstock={instance.product.in_stock}+{instance.quantity}; newTC={instance.order.total_charge}-{instance.total_charge}'
-        # raise serializers.ValidationError(detail=details)
-        instance.product.in_stock += instance.quantity
-        instance.order.total_charge = float(instance.order.total_charge) - float(instance.total_charge)
-        instance.order.save()
-        instance.product.save()
-        
-        instance.delete()
-        return instance
-    
-    def restore(self, instance=None):
-        instance = instance or self.instance
-        if instance.product.in_stock < instance.quantity:
-            raise serializers.ValidationError('Số lượng sản phẩm trong kho không đủ!')
-        instance.product.in_stock -= instance.quantity
-        instance.order.total_charge = float(instance.order.total_charge) + float(instance.total_charge)
-        instance.order.save()
-        instance.product.save()
-        instance.restore()
-        return instance
-    
-    def to_representation(self, instance):
-        #if instance.is_deleted: return {'This item is deleted.'}
-        return {
-            **SerializerUtils.representation_dict_formater(
-                ['quantity', 'total_charge'],
-                instance=instance
-            ),
-            'order': instance.order.id,
-            'product_id': instance.product.id,
-            'product_name': instance.product.name,
-            'product_price': instance.product.price,
-            'product_instock': instance.product.in_stock,
-        }
-
-class OrderItemDetailSerializer(OrderItemSerializer):
-    def to_representation(self, instance):
-        #if instance.is_deleted: return {'This item is deleted.'}
-        return {
-            **SerializerUtils.detail_dict_formater(
-                ['quantity', 'total_charge'],
-                instance=instance
-            ),
-            'order': instance.order.id,
-            'product_id': instance.product.id,
-            'product_name': instance.product.name,
-            'product_price': instance.product.price,
-            'product_instock': instance.product.in_stock,
-        }
-            
+        return data            
             
 #! FORCE DELETE SERIALIZERS
 class OrderForceDeleteSerializer(OrderSerializer):
@@ -397,14 +392,46 @@ class OrderItemForceDeleteSerializer(OrderItemSerializer):
         instance.delete()
         return instance
     
+#! CHECK OUT SERIALIZERS
+class CouponApplySerializer(serializers.Serializer):
+    coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all())
     
-#! PRICE CHECK OUT SERIALIZERS
+    def to_internal_value(self, data):
+        # If data is a single integer, assume it's the coupon ID and transform it
+        if isinstance(data, int):
+            data = {'coupon': data}
+        return super().to_internal_value(data)
+    
+    def validate(self, data):
+        coupon = data.get('coupon')
+        return coupon
+    
+class FlashsaleApplySerializer(serializers.Serializer):
+    flashsale = serializers.PrimaryKeyRelatedField(queryset=Flashsale.objects.all())
+    
+    def to_internal_value(self, data):
+        # If data is a single integer, assume it's the flashsale ID and transform it
+        if isinstance(data, int):
+            data = {'flashsale': data}
+        return super().to_internal_value(data)
+    
+    def validate(self, data):
+        from django.utils import timezone
+        
+        flashsale = data.get('flashsale')
+        if flashsale.start_date > timezone.now():
+            raise serializers.ValidationError('Flashsale has not started yet!')
+        if flashsale.end_date < timezone.now():
+            raise serializers.ValidationError('Flashsale has ended!')
+        return flashsale
+    
 class CheckoutSerializer(serializers.Serializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(), required=False)
-    items = serializers.JSONField(default=list) #* format: [{'product':<id>, 'quantity':<int>}]
+    coupon = CouponApplySerializer(required=False)
+    flashsale = FlashsaleApplySerializer(required=False)
+    items = OrderItemSerializer(many=True) #* format: [{'product':<id>, 'quantity':<int>}]
     
-    def bind_shop(self, items:list[dict], coupon):
+    def bind_shop(self, items:list[dict], coupon, flashsale):
         #* input format: items=[{'product':<Product>, 'quantity':<int>}], coupon=<Coupon>
         #* output format: { <shop>: {'coupon':<Coupon>, 'total_charge': <float>, 'items': [{ 'product':<Product>, 'quantity':<int>, 'price':<Product>.price, 'charge':<Product>.price*quantity }]} }
         order_of = {}
@@ -415,6 +442,7 @@ class CheckoutSerializer(serializers.Serializer):
             if shop not in order_of:
                 order_of[shop] = {
                     'coupon': coupon if coupon and coupon.shop == shop else None,
+                    'flashsale': flashsale if flashsale and flashsale.shop == shop else None,
                     'items': [],
                     'total_charge': 0.0
                 }
@@ -422,32 +450,24 @@ class CheckoutSerializer(serializers.Serializer):
             order_of[shop]['items'].append({
                 'product': item['product'],
                 'quantity': quantity,
-                'price': item['product'].price,
-                'charge': item['product'].price * quantity
+                'price': item['price'],
+                'charge': item['price'] * quantity
             })
-            order_of[shop]['total_charge'] += item['product'].price * quantity 
+            order_of[shop]['total_charge'] += item['price'] * quantity 
 
         return order_of
     
     def validate(self, data):
         user = data.get('user')
-        coupon = data.get('coupon')
-        if coupon:
+        if (coupon := data.get('coupon')): 
             if not Coupon.objects.filter(pointexchange__buyer__user=user, id=coupon.id).exists():
                 raise serializers.ValidationError('User does not possess this Coupon!')
-            if PointExchange.objects.filter(coupon=coupon).first().remain_usage <= 0:
+            if PointExchange.objects.filter(coupon=coupon,buyer__user=user).first().remain_usage <= 0:
                 raise serializers.ValidationError('Coupon is out of usage!')
         
         from . import tasks
-        items = []
-        for item in data.get('items'):
-            product = Product.objects.filter(id=item.get('product')).first()
-            if not product:
-                raise serializers.ValidationError(f'Product[{item.get("product")}] does not exist!')
-            if item.get('quantity') > product.in_stock:
-                raise serializers.ValidationError(f'Product[{product.id}] is out of stock!')
-            items.append({'product': product, 'quantity': item.get('quantity')})
-        binded_items = self.bind_shop(items, data.get('coupon'))
+        items = data.get('items')
+        binded_items = self.bind_shop(items, data.get('coupon'), data.get('flashsale'))
         for shop in binded_items.keys():
             binded_items[shop]['user'] = user
             promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
@@ -485,6 +505,7 @@ class CheckoutSerializer(serializers.Serializer):
                     'product': item['product'].name,
                     'product_id': item['product'].id,
                     'price': item['price'],
+                    'non-sale_price': item['product'].price,
                     'quantity': item['quantity'],
                     'total_charge': item['charge']
                 })

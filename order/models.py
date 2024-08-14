@@ -16,6 +16,7 @@ class Order(SoftDeleteModelMixin, models.Model):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
     promotion = models.ForeignKey('promotion.Promotion', on_delete=models.SET_NULL, null=True, blank=True)
+    flashsale = models.ForeignKey('flashsale.FlashSale', on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=10, choices=ORDER_STATUS_CHOICES, default='pending')
     total_charge = models.FloatField(default=0.00) #@ charges that is changed by Order Items
     final_charge = models.FloatField(default=0.00) #@ charges that is changed by Discount

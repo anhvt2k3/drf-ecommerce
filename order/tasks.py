@@ -29,6 +29,10 @@ def loyalty_logics(order : Order):
             pointgain = get_or_create_pointgain(buyer, cur_rank, quest)
             pointgain.insert_orderitem(orderitem.id)
             cur_rank = update_progress(shop, buyer, cur_rank, quest, pointgain,orderitem)
+        
+                        ##################################
+                        ##          COMPONENTS          ##
+                        ##################################
 
 def get_or_create_buyer(user, shop):
     buyer = Buyer.objects.filter(user=user, shop=shop).first()
@@ -111,13 +115,6 @@ def updateRank(shop, buyer, cur_rank):
 
 
 
-
-
-
-
-
-
-
 # benefit_lock = threading.Lock()
 def apply_benefit(order_id):
     # with benefit_lock:
@@ -126,7 +123,7 @@ def apply_benefit(order_id):
         coupon = order.coupon
         shop = order.orderitem_set.first().product.shop
         user = order.user
-        promo = get_promo(user, order=order)
+        promo = get_promo(user, order=order) if not order.flashsale else None
         benefits = retrieve_discounts(user,shop,coupon=coupon,order=order,promo=promo)
         
         #! log benefits
@@ -134,7 +131,11 @@ def apply_benefit(order_id):
         if coupon: PointExchange.objects.filter(buyer__user=user,coupon=coupon.id).update(remain_usage=F('remain_usage')-1)
         order.final_charge = apply_discounts(benefits,float(order.total_charge),order=order)
         order.save()
-
+        
+                        ##################################
+                        ##          COMPONENTS          ##
+                        ##################################
+                        
 def apply_discounts(benefits, total_charge, **kwargs):
     order = kwargs.get('order')
     for benefit in benefits:
@@ -165,7 +166,7 @@ def retrieve_discounts(user,shop,**kwargs):
                         'benefit_type': item.benefit_type,
                         'benefit':item.benefit_value 
                     }
-                for item in [promos]] if promos else []
+            for item in [promos]] if promos else []
     #! benefit comes from coupon
     if (coupon := kwargs.get('coupon')):
         benefits += [{  
@@ -174,7 +175,7 @@ def retrieve_discounts(user,shop,**kwargs):
                         'benefit_type':item.default_benefit.benefit_type,
                         'benefit':item.config_amount 
                     } 
-                for item in coupon.benefit_set.all().order_by('-default_benefit__benefit_type')] if coupon else []
+            for item in coupon.benefit_set.all().order_by('-default_benefit__benefit_type')] if coupon else []
     return benefits
 
 def get_promo(user, **kwargs) -> Promotion:

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from product.models import Product
 from shop.models import Shop
 from .models import *
@@ -170,11 +171,11 @@ class FlashsaleSerializer(serializers.Serializer):
     conditions = FlashsaleConditionSerializer(many=True)
     
     def validate(self, data):
-        if self.instance: 
-            return data
-        
+        if self.instance:  return data
         ## validate Product integrity with Shop
         if (products := data.get('products')):
+            if len(products) != len(set(products)):
+                raise serializers.ValidationError('Duplicate products in Flashsale')
             for product in products:
                 if product['product'].shop != data['shop']:
                     raise serializers.ValidationError('Product does not belong to the shop')
@@ -228,7 +229,7 @@ class FlashsaleSerializer(serializers.Serializer):
 class FlashsaleDetailSerializer(FlashsaleSerializer):
     def to_representation(self, instance):
         return {
-            **SerializerUtils.representation_dict_formater(
+            **SerializerUtils.detail_dict_formater(
                 input_fields=['name', 'start_date', 'end_date'],
                 instance=instance),
             'shop': instance.shop.name,
