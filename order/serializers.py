@@ -466,11 +466,16 @@ class CheckoutSerializer(serializers.Serializer):
                 raise serializers.ValidationError('Coupon is out of usage!')
         
         from . import tasks
+        from flashsale import tasks as flashsale_tasks
         items = data.get('items')
         binded_items = self.bind_shop(items, data.get('coupon'), data.get('flashsale'))
         for shop in binded_items.keys():
             binded_items[shop]['user'] = user
-            promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
+            if flashsale := binded_items[shop]['flashsale']:
+                binded_items[shop]['items'], binded_items[shop]['total_charge'] = flashsale_tasks.apply_flashsale(flashsale, binded_items[shop]['items'], user)
+                promo = binded_items[shop]['promotion'] = None
+            else:
+                promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
             binded_items[shop]['final_charge'] = tasks.apply_discounts(
                 benefits=tasks.retrieve_discounts(user, shop, coupon=binded_items[shop]['coupon'],promo=promo),
                 total_charge=binded_items[shop]['total_charge']
@@ -517,6 +522,7 @@ class CheckoutSerializer(serializers.Serializer):
                 'sub_total': data['total_charge'],
                 'coupon': data['coupon'].id if data['coupon'] else None,
                 'promotion': data['promotion'].id if data['promotion'] else None,
+                'flashsale': data['flashsale'].id if data['flashsale'] else None,
                 'total': data.get('final_charge', data['total_charge']),
             }
             
