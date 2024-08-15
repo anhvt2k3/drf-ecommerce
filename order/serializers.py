@@ -1,10 +1,12 @@
 from cart.models import Cart, CartItem
 from exchange.models import PointExchange
 from flashsale.models import Flashsale, FlashsaleProduct
+from order.models import OrderItem
 from .models import *
 from .utils.utils import *
 
-from email.policy import default
+from django.db import transaction
+from flashsale.tasks import apply_flashsale
 from product.models import Product
 from .tasks import loyalty_logics,apply_benefit
 import threading
@@ -50,14 +52,14 @@ class OrderItemSerializer(serializers.Serializer):
         return data
     
     #* required fields: product, quantity, order
-    def create(self, validated_data : dict):
+    def create(self, validated_data : dict) -> OrderItem:
         product = Product.objects.filter(id=validated_data.get('product').id).first()
         order = Order.objects.filter(id=validated_data.get('order').id).first()
         
-        product.in_stock = product.in_stock - validated_data.get('quantity')
-        order.final_charge = order.total_charge = float(order.total_charge) + validated_data.get('total_charge')
-        product.save()
-        order.save()
+        # product.in_stock = product.in_stock - validated_data.get('quantity')
+        # order.final_charge = order.total_charge = float(order.total_charge) + validated_data.get('total_charge')
+        # product.save()
+        # order.save()
         
         input_fields = ['product', 'quantity', 'price', 'total_charge', 'order']
         model = OrderItem
@@ -147,6 +149,7 @@ class OrderItemSerializer(serializers.Serializer):
             'product_id': instance.product.id,
             'product_name': instance.product.name,
             'product_price': instance.product.price,
+            'sold_price': instance.price,
             'product_instock': instance.product.in_stock,
         }
 
@@ -162,6 +165,7 @@ class OrderItemDetailSerializer(OrderItemSerializer):
             'product_id': instance.product.id,
             'product_name': instance.product.name,
             'product_price': instance.product.price,
+            'sold_price': instance.price,
             'product_instock': instance.product.in_stock,
         }
 
@@ -200,9 +204,9 @@ class OrderSerializer(serializers.Serializer):
     def create(self, validated_data):
         using_cart = validated_data.get('using_cart', False)
         creating_with_items = validated_data.get('creating_with_items', False)
-        items = validated_data.get('orderitems', [])
         user = validated_data.get('user')
         coupon = validated_data.get('coupon')
+        flashsale = validated_data.get('flashsale')
         
         if using_cart:
             cart = Cart.objects.filter(user=user).first()
@@ -211,13 +215,12 @@ class OrderSerializer(serializers.Serializer):
             # cart.delete() #! Optionally delete cart if required
         elif creating_with_items:
             items = validated_data.get('orderitems', [])
+        
         #! validate items
-        if not (orderitemseri := OrderItemSerializer(data=items, many=True)).is_valid():
-            raise serializers.ValidationError(orderitemseri.errors)
-        if not self.isNoDuplicateProduct(orderitemseri.validated_data):
+        if not self.isNoDuplicateProduct(items):
             raise serializers.ValidationError('Duplicate Product in Order Items!')
         
-        shopmap = self.bind_shopNcoupon(items=orderitemseri.validated_data, user=user, coupon=coupon)
+        shopmap = self.bind_shopNcoupon(items=items, user=user, coupon=coupon, flashsale=flashsale)
         ordermap = self.save_to_db(shopmap)
         
         for order in ordermap.keys():
@@ -227,18 +230,19 @@ class OrderSerializer(serializers.Serializer):
         
         return list(ordermap.keys())
 
-    def bind_shopNcoupon(self, items, user, coupon):
+    def bind_shopNcoupon(self, items, user, coupon, flashsale):
         """
-        Creates orders per shop based on the items and returns the items with associated order IDs.
+            Creates orders per shop based on the items and returns the items with associated order IDs.
         """
         order_of = {}
         for item in items:
             shop = item['product'].shop
             if shop not in order_of.keys():
-                args = {'user': user, 'coupon': coupon} if coupon and shop.id == coupon.shop.id else {'user': user}
+                args = {'user': user, 'coupon': coupon if coupon and coupon.shop.id == shop.id else None, 
+                            'flashsale': flashsale if flashsale and flashsale.shop.id == shop.id else None, }
                 order_of[shop] = (Order(**args), [])
             order_of[shop][1].append(item)
-        return order_of
+        return order_of 
     
     def isNoDuplicateProduct(self, orderitems):
         products = [item['product'] for item in orderitems]
@@ -246,9 +250,11 @@ class OrderSerializer(serializers.Serializer):
     
     def save_to_db(self, ordermap):
         instmap = {}
-        for order, orderitems in ordermap.values():
-            order.save()
-            instmap[order] = [OrderItemSerializer().create(validated_data={'order':order,**item}) for item in orderitems]
+        with transaction.atomic():
+            for order, orderitems in ordermap.values():
+                orderitems, order.total_charge = apply_flashsale(order.flashsale, orderitems, order.user, is_order=True)
+                order.save()
+                instmap[order] = [OrderItemSerializer().create(validated_data={'order':order,**item}) for item in orderitems]
         return instmap
     
     def update(self, instance :models.Model, validated_data):

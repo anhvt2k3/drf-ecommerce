@@ -123,7 +123,11 @@ def apply_benefit(order_id):
         coupon = order.coupon
         shop = order.orderitem_set.first().product.shop
         user = order.user
-        promo = get_promo(user, order=order) if not order.flashsale else None
+        if not order.flashsale:
+            promo = get_promo(user, order=order) 
+        else:
+            promo = None
+            order.store_benefit({'source':f'Flashsale[{order.flashsale.id}]'})
         benefits = retrieve_discounts(user,shop,coupon=coupon,order=order,promo=promo)
         
         #! log benefits

@@ -4,9 +4,10 @@ from .serializers import *
 from shop.models import Buyer
 from django.db import models
 
-def apply_flashsale(flashsale, items: list, user):
-    if not reconcileWTime(flashsale): return
-    if not reconcileWCondition(flashsale.flashsalecondition_set.all(), user, items): return
+def apply_flashsale(flashsale, items: list, user, is_order=False):
+    if flashsale:
+        if not reconcileWTime(flashsale): return
+        if not reconcileWCondition(flashsale.flashsalecondition_set.all(), user, items): return
     total_charge = 0
     for item in items:
         if (fproduct := FlashsaleProduct.objects.filter(flashsale=flashsale, product=item['product']).first()):
@@ -22,10 +23,16 @@ def apply_flashsale(flashsale, items: list, user):
             fproduct_sold_quantity = OrderItem.objects.filter(order__flashsale=flashsale).exclude(price=models.F('product__price')).aggregate(fsolds=models.Sum(models.F('quantity')))['fsolds'] or 0
             if fproduct.stock - fproduct_sold_quantity < item['quantity']:
                 raise serializers.ValidationError('Flashsale is over for product: ' + item['product'].name)
-            
             item['price'] = fproduct.sale_price
-            item['charge'] = fproduct.sale_price * item['quantity']
-        total_charge += item['charge']
+        
+        if is_order:
+            item['total_charge'] = item['price'] * item['quantity']
+            item['product'].in_stock = item['product'].in_stock - item['quantity']
+            item['product'].save()
+        else:
+            item['charge'] = item['price'] * item['quantity']
+            
+        total_charge += item['charge'] if not is_order else item['total_charge']
     return items, total_charge
         
         
