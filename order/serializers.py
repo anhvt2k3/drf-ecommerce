@@ -6,7 +6,7 @@ from .models import *
 from .utils.utils import *
 
 from django.db import transaction
-from flashsale.tasks import apply_flashsale
+from flashsale.tasks import calculations_N_apply_flashsale
 from product.models import Product
 from .tasks import loyalty_logics,apply_benefit
 import threading
@@ -252,7 +252,7 @@ class OrderSerializer(serializers.Serializer):
         instmap = {}
         with transaction.atomic():
             for order, orderitems in ordermap.values():
-                orderitems, order.total_charge = apply_flashsale(order.flashsale, orderitems, order.user, is_order=True)
+                orderitems, order.total_charge = calculations_N_apply_flashsale(order.flashsale, orderitems, order.user, is_order=True)
                 order.save()
                 instmap[order] = [OrderItemSerializer().create(validated_data={'order':order,**item}) for item in orderitems]
         return instmap
@@ -478,7 +478,7 @@ class CheckoutSerializer(serializers.Serializer):
         for shop in binded_items.keys():
             binded_items[shop]['user'] = user
             if flashsale := binded_items[shop]['flashsale']:
-                binded_items[shop]['items'], binded_items[shop]['total_charge'] = flashsale_tasks.apply_flashsale(flashsale, binded_items[shop]['items'], user)
+                binded_items[shop]['items'], binded_items[shop]['total_charge'] = flashsale_tasks.calculations_N_apply_flashsale(flashsale, binded_items[shop]['items'], user)
                 promo = binded_items[shop]['promotion'] = None
             else:
                 promo = binded_items[shop]['promotion'] = tasks.get_promo(user, cart=(shop, binded_items[shop]['items']))
