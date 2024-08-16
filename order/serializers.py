@@ -225,8 +225,8 @@ class OrderSerializer(serializers.Serializer):
         
         for order in ordermap.keys():
             #@ these 2 threads should not have any dependency on each other
-            threading.Thread(target=apply_benefit, args=(order.id,)).start()
             threading.Thread(target=loyalty_logics, args=(order,)).start()
+            apply_benefit(order.id)
         
         return list(ordermap.keys())
 

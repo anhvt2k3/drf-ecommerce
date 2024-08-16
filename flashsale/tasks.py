@@ -6,8 +6,8 @@ from django.db import models
 
 def calculations_N_apply_flashsale(flashsale, items: list, user, is_order=False):
     if flashsale:
-        if not reconcileWTime(flashsale): return
-        if not reconcileWCondition(flashsale.flashsalecondition_set.all(), user, items): return
+        reconcileWTime(flashsale)
+        reconcileWCondition(flashsale.flashsalecondition_set.all(), user, items)
     total_charge = 0
     for item in items:
         if (fproduct := FlashsaleProduct.objects.filter(flashsale=flashsale, product=item['product']).first()):

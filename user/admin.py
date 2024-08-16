@@ -22,6 +22,10 @@ class OrderAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'shop', 'benefits', 'total_charge', 'final_charge','status', 'created_at']
     # list_filter = ['status', 'user']
+    
+@admin.register(OrderBenefit)
+class OrderBenefitAdmin(admin.ModelAdmin):
+    list_display = ['id', 'order', 'source']
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
