@@ -1,3 +1,4 @@
+from datetime import timedelta
 from .models import *
 from order.models import Order, OrderItem
 from .serializers import *
@@ -6,24 +7,14 @@ from django.db import models
 
 def calculations_N_apply_flashsale(flashsale, items: list, user, is_order=False):
     if flashsale:
-        reconcileWTime(flashsale)
+        # reconcileWTime(flashsale)
         reconcileWCondition(flashsale.flashsalecondition_set.all(), user, items)
     total_charge = 0
     for item in items:
         if (fproduct := FlashsaleProduct.objects.filter(flashsale=flashsale, product=item['product']).first()):
-            #! Check if user is ordering over the sale limit
-            if item['quantity'] > fproduct.sale_limit:
-                raise serializers.ValidationError('User is ordering more than the sale limit!')
-            #! Check if this user has bought enough of this product
-            fproduct_user_bought = OrderItem.objects.filter(order__flashsale=flashsale,order__user=user, product=item['product']).aggregate(solds=models.Sum('quantity'))['solds'] or 0
-            if fproduct_user_bought >= fproduct.sale_limit:
-                raise serializers.ValidationError('User has already bought the maximum quantity of this product!')
-            #! Check if product has available stock
-            fproduct_sold_quantity = OrderItem.objects.filter(order__flashsale=flashsale).exclude(price=models.F('product__price')).aggregate(fsolds=models.Sum(models.F('quantity')))['fsolds'] or 0
-            if fproduct.stock - fproduct_sold_quantity < item['quantity']:
-                raise serializers.ValidationError('Flashsale is over for product: ' + item['product'].name)
+            reconcileWFProduct(flashsale, user, item, fproduct)
+            
             item['price'] = fproduct.sale_price
-        
         if is_order:
             item['total_charge'] = item['price'] * item['quantity']
             item['product'].in_stock = item['product'].in_stock - item['quantity']
@@ -33,10 +24,20 @@ def calculations_N_apply_flashsale(flashsale, items: list, user, is_order=False)
             
         total_charge += item['charge'] if not is_order else item['total_charge']
     return items, total_charge
-        
-        
+
+
 ###############################################
-        
+
+def reconcileWFProduct(flashsale, user, item, fproduct):
+    #! Check if product has available stock
+    fproduct_sold_quantity = OrderItem.objects.filter(order__flashsale=flashsale).exclude(price=models.F('product__price')).aggregate(fsolds=models.Sum(models.F('quantity')))['fsolds'] or 0
+    if fproduct.stock - fproduct_sold_quantity < item['quantity']:
+        raise serializers.ValidationError('Flashsale is over for product: ' + item['product'].name)
+    #! Check if user is ordering over the sale limit
+    fproduct_user_bought = OrderItem.objects.filter(order__flashsale=flashsale,order__user=user, product=item['product']).aggregate(solds=models.Sum('quantity'))['solds'] or 0
+    bought_and_intended = fproduct_user_bought + item['quantity']
+    if bought_and_intended >= fproduct.sale_limit:
+        raise serializers.ValidationError('User is exceeding the sale limit one is allowed to order!')
     
 def reconcileWTime(flashsale):
     from django.utils import timezone
@@ -62,3 +63,20 @@ def reconcileWCondition(conditions,user,items):
             if cond.flashsale.order_set.count() >= cond.max:
                 raise serializers.ValidationError('Flashsale has reached the maximum number of orders!')
     return True
+
+
+
+###############################################
+
+def reconcileWLimit(flashsale, products):
+    prod_limit = FlashsaleLimit.objects.all()
+    for limit in prod_limit:
+        if limit.type == 'product:max-flashsale' and products:
+            limitation = int(limit.value)
+            for product in products:
+                if FlashsaleProduct.objects.filter(product=product['product']).count() >= limitation:
+                    raise serializers.ValidationError('Product has joined too many Flash sales. Max Flash sales to join is ' + str(limitation))
+        elif limit.type == 'sale:max-period':
+            limitation = {f'{limit.unit}': limit.value}
+            if (flashsale['end_date'] - flashsale['start_date']) > timedelta(**limitation):
+                raise serializers.ValidationError('Flashsale period is too long! Max period is ' + str(limitation))

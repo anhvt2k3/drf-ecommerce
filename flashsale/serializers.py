@@ -1,4 +1,3 @@
-from datetime import timedelta
 from product.models import Product
 from shop.models import Shop
 from .models import *
@@ -180,17 +179,8 @@ class FlashsaleSerializer(serializers.Serializer):
                 if product['product'].shop != data['shop']:
                     raise serializers.ValidationError('Product does not belong to the shop')
         ## validate with FlashsaleLimit
-        prod_limit = FlashsaleLimit.objects.all()
-        for limit in prod_limit:
-            if limit.type == 'product:max-flashsale' and products:
-                limitation = int(limit.value)
-                for product in products:
-                    if FlashsaleProduct.objects.filter(product=product['product']).count() >= limitation:
-                        raise serializers.ValidationError('Product has joined too many Flashsales')
-            elif limit.type == 'sale:max-period':
-                limitation = {f'{limit.unit}': limit.value}
-                if (data['end_date'] - data['start_date']) > timedelta(**limitation):
-                    raise serializers.ValidationError('Flashsale period is over the limit')
+        from flashsale.tasks import reconcileWLimit
+        reconcileWLimit(data, products)
         return data
     
     def create(self, validated_data):

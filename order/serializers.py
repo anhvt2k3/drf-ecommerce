@@ -11,6 +11,24 @@ from product.models import Product
 from .tasks import loyalty_logics,apply_benefit
 import threading
 
+class FlashsaleApplySerializer(serializers.Serializer):
+    flashsale = serializers.PrimaryKeyRelatedField(queryset=Flashsale.objects.all())
+    
+    def to_internal_value(self, data):
+        # If data is a single integer, assume it's the flashsale ID and transform it
+        if isinstance(data, int):
+            data = {'flashsale': data}
+        return super().to_internal_value(data)
+    
+    def validate(self, data):
+        from django.utils import timezone
+        
+        flashsale = data.get('flashsale')
+        if flashsale.start_date > timezone.now():
+            raise serializers.ValidationError('Flashsale has not started yet!')
+        if flashsale.end_date < timezone.now():
+            raise serializers.ValidationError('Flashsale has ended!')
+        return flashsale
 class OrderItemSerializer(serializers.Serializer):
     #@ modify queryset to minimized access range of Entity
     order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all(), required=False)
@@ -175,7 +193,7 @@ class OrderSerializer(serializers.Serializer):
     final_charge = serializers.FloatField(default=0.00, read_only=True)
     status = serializers.ChoiceField(choices=ORDER_STATUS_CHOICES, default='pending')
     coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(), required=False)
-    flashsale = serializers.PrimaryKeyRelatedField(queryset=Flashsale.objects.all(), required=False)
+    flashsale = FlashsaleApplySerializer(required=False)
     
     using_cart = serializers.BooleanField(default=False)
     creating_with_items = serializers.BooleanField(default=False)
@@ -184,22 +202,17 @@ class OrderSerializer(serializers.Serializer):
     def validate(self, data):
         if self.instance and self.instance.status != 'pending':
             raise serializers.ValidationError('Order đã được xác nhận, không thể thay đổi thông tin!')
+        if (coupon := data.get('coupon')): 
+            if not Coupon.objects.filter(pointexchange__buyer__user=data['user'], id=coupon.id).exists():
+                raise serializers.ValidationError('User does not possess this Coupon!')
+            if PointExchange.objects.filter(coupon=coupon,buyer__user=data['user']).first().remain_usage <= 0:
+                raise serializers.ValidationError('Coupon is out of usage!')
         if not (data.get('creating_with_items') or data.get('using_cart')):
             items = data.get('orderitems', [])
             if not items:
                 raise serializers.ValidationError("Items must be provided if not using cart or creating with items.")
         # print (f'data: {data}')
         return data
-    
-    def validate_coupon(self, value):
-        if value: 
-            if (exchange_record := PointExchange.objects.filter(coupon=value.id).first()):
-                # print ('remain usage:', exchange_record.remain_usage)
-                if exchange_record.remain_usage <= 0:
-                    raise serializers.ValidationError('Coupon is out of usage!')
-            else:
-                raise serializers.ValidationError('Coupon is not in User possession!')
-        return value
     
     def create(self, validated_data):
         using_cart = validated_data.get('using_cart', False)
@@ -254,7 +267,7 @@ class OrderSerializer(serializers.Serializer):
             for order, orderitems in ordermap.values():
                 orderitems, order.total_charge = calculations_N_apply_flashsale(order.flashsale, orderitems, order.user, is_order=True)
                 order.save()
-                instmap[order] = [OrderItemSerializer().create(validated_data={'order':order,**item}) for item in orderitems]
+                instmap[order] = [OrderItemSerializer().create({'order':order,**item}) for item in orderitems]
         return instmap
     
     def update(self, instance :models.Model, validated_data):
@@ -399,41 +412,9 @@ class OrderItemForceDeleteSerializer(OrderItemSerializer):
         return instance
     
 #! CHECK OUT SERIALIZERS
-class CouponApplySerializer(serializers.Serializer):
-    coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all())
-    
-    def to_internal_value(self, data):
-        # If data is a single integer, assume it's the coupon ID and transform it
-        if isinstance(data, int):
-            data = {'coupon': data}
-        return super().to_internal_value(data)
-    
-    def validate(self, data):
-        coupon = data.get('coupon')
-        return coupon
-    
-class FlashsaleApplySerializer(serializers.Serializer):
-    flashsale = serializers.PrimaryKeyRelatedField(queryset=Flashsale.objects.all())
-    
-    def to_internal_value(self, data):
-        # If data is a single integer, assume it's the flashsale ID and transform it
-        if isinstance(data, int):
-            data = {'flashsale': data}
-        return super().to_internal_value(data)
-    
-    def validate(self, data):
-        from django.utils import timezone
-        
-        flashsale = data.get('flashsale')
-        if flashsale.start_date > timezone.now():
-            raise serializers.ValidationError('Flashsale has not started yet!')
-        if flashsale.end_date < timezone.now():
-            raise serializers.ValidationError('Flashsale has ended!')
-        return flashsale
-    
 class CheckoutSerializer(serializers.Serializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    coupon = CouponApplySerializer(required=False)
+    coupon = serializers.PrimaryKeyRelatedField(queryset=Coupon.objects.all(),required=False)
     flashsale = FlashsaleApplySerializer(required=False)
     items = OrderItemSerializer(many=True) #* format: [{'product':<id>, 'quantity':<int>}]
     

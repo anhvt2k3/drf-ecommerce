@@ -14,6 +14,7 @@ from shop.models import Buyer, PointGain, Progress
 from shop.serializers import BuyerSerializer, PointGainSerializer, ProgressSerializer
 
 loyalty_lock = threading.Lock()
+
 def loyalty_logics(order : Order):
     user = order.user
     orderitems = order.orderitem_set.all()
