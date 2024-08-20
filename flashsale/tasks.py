@@ -36,7 +36,7 @@ def reconcileWFProduct(flashsale, user, item, fproduct):
     #! Check if user is ordering over the sale limit
     fproduct_user_bought = OrderItem.objects.filter(order__flashsale=flashsale,order__user=user, product=item['product']).aggregate(solds=models.Sum('quantity'))['solds'] or 0
     bought_and_intended = fproduct_user_bought + item['quantity']
-    if bought_and_intended >= fproduct.sale_limit:
+    if bought_and_intended > fproduct.sale_limit:
         raise serializers.ValidationError('User is exceeding the sale limit one is allowed to order!')
     
 def reconcileWTime(flashsale):
@@ -77,6 +77,6 @@ def reconcileWLimit(flashsale, products):
                 if FlashsaleProduct.objects.filter(product=product['product']).count() >= limitation:
                     raise serializers.ValidationError('Product has joined too many Flash sales. Max Flash sales to join is ' + str(limitation))
         elif limit.type == 'sale:max-period':
-            limitation = {f'{limit.unit}': limit.value}
+            limitation = {f'{limit.unit}': float(limit.value)}
             if (flashsale['end_date'] - flashsale['start_date']) > timedelta(**limitation):
                 raise serializers.ValidationError('Flashsale period is too long! Max period is ' + str(limitation))

@@ -26,18 +26,17 @@ class CouponUserView(generics.GenericAPIView):
                 request,
                 self.serializer_class,
                 self.model_class.objects.filter(id=kwargs['pk'])
-                                .exclude(pointexchange__buyer__user=request.user)
+                                .exclude(pointexchange__buyer__user=request.user, pointexchange__is_deleted=False)
             )
             return Response(respn, status=respn['status'])
         else:
-            print (self.model_class.objects.first().pointexchange)
             respn = ViewUtils.paginated_get_response(
                 self,
                 request,
                 self.serializer_class,
                 self.model_class.objects.all()
-                                .filter(pointexchange__buyer__user=request.user)
-                                # .exclude(pointexchange__buyer__user=request.user)
+                                # .filter(pointexchange__buyer__user=request.user)
+                                .exclude(pointexchange__buyer__user=request.user, pointexchange__is_deleted=False)
             )
             return Response(respn, status=respn['status'])
     

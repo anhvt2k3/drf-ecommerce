@@ -249,7 +249,7 @@ class PointGainSerializer(serializers.Serializer):
             'orderitems': [{
                     'id': orderitem.id,
                     'order': orderitem.order.id,
-                    'total_charge': orderitem.total_charge,
+                    'total_charge': orderitem.product.price * orderitem.quantity,
                     'quantity': orderitem.quantity,
                     'product': orderitem.product.id,
                 }

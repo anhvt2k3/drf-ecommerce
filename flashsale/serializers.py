@@ -1,3 +1,4 @@
+from notification.models import Notification
 from product.models import Product
 from shop.models import Shop
 from .models import *
@@ -173,10 +174,11 @@ class FlashsaleSerializer(serializers.Serializer):
         if self.instance:  return data
         ## validate Product integrity with Shop
         if (products := data.get('products')):
-            if len(products) != len(set(products)):
+            product_instances = [product['product'] for product in products]
+            if len(product_instances) != len(set(product_instances)):
                 raise serializers.ValidationError('Duplicate products in Flashsale')
-            for product in products:
-                if product['product'].shop != data['shop']:
+            for product in product_instances:
+                if product.shop != data['shop']:
                     raise serializers.ValidationError('Product does not belong to the shop')
         ## validate with FlashsaleLimit
         from flashsale.tasks import reconcileWLimit
@@ -186,11 +188,20 @@ class FlashsaleSerializer(serializers.Serializer):
     def create(self, validated_data):
         products = validated_data.pop('products', [])
         conditions = validated_data.pop('conditions', [])
+        buyers = validated_data['shop'].buyer_set.all()
         instance = Flashsale.objects.create(**validated_data)
         for product in products:
             FlashsaleProduct.objects.create(flashsale=instance, **product)
         for condition in conditions:
             FlashsaleCondition.objects.create(flashsale=instance, **condition)
+        for buyer in buyers:
+            args = {
+                'recipient': buyer.user,
+                'shop': instance.shop,
+                'title': f'Flashsale {instance.name} is coming!',
+                'message': f'Flashsale {instance.name} is coming! Start from {instance.start_date} to {instance.end_date}',
+                }
+            Notification.objects.create(**args)
         return instance
     
     def update(self, instance, validated_data):

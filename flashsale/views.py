@@ -26,7 +26,7 @@ class FlashsaleUserView(generics.GenericAPIView):
                 self,
                 request,
                 FlashsaleDetailSerializer,
-                Flashsale.objects.get(pk=kwargs['pk'], shop__in=request.user.buyer.shop.all())
+                Flashsale.objects.get(pk=kwargs['pk'], shop__buyer__user=request.user)
             )
             return Response(data, status=data['status'])
         else:
@@ -34,7 +34,7 @@ class FlashsaleUserView(generics.GenericAPIView):
                 self,
                 request,
                 FlashsaleSerializer,
-                Flashsale.objects.filter(shop__in=request.user.buyer.shop.all())
+                Flashsale.objects.filter(shop__buyer__user=request.user).distinct()
             )
             return Response(data, status=data['status'])
         
@@ -74,7 +74,7 @@ class FlashsaleShopView(generics.GenericAPIView):
             data=ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Flashsale validation failed',data=serializer.errors)
             return Response(data, status=data['status'])
         serializer.save()
-        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Flashsale created successfully',data=f'Item created: {serializer.data}')
+        data=ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='Flashsale created successfully',data=serializer.data)
         return Response(data, status=data['status'])
     
     def put(self, request, *args, **kwargs):

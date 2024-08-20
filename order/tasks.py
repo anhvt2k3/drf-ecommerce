@@ -77,7 +77,7 @@ orderitem):
     seri.save()
     
     progress_spending = pointgain.progress_set.filter(prog_type='spending').first()
-    seri = ProgressSerializer(progress_spending, data={'progression': progress_spending.progression+float(orderitem.total_charge)}, partial=True)
+    seri = ProgressSerializer(progress_spending, data={'progression': progress_spending.progression+float(orderitem.quantity * orderitem.product.price)}, partial=True)
     seri.is_valid(raise_exception=True)
     seri.save()
     #! check if completed
