@@ -15,8 +15,9 @@ class CouponUserView(generics.GenericAPIView):
     model_class = Coupon
     serializer_class = CouponSerializer
     queryset = model_class.objects.all()
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = CouponFilter
+    search_fields = ['shop__name']
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
@@ -29,13 +30,14 @@ class CouponUserView(generics.GenericAPIView):
             )
             return Response(respn, status=respn['status'])
         else:
+            print (self.model_class.objects.first().pointexchange)
             respn = ViewUtils.paginated_get_response(
                 self,
                 request,
                 self.serializer_class,
                 self.model_class.objects.all()
-                                # .filter(pointexchange__buyer__user=request.user)
-                                .exclude(pointexchange__buyer__user=request.user)
+                                .filter(pointexchange__buyer__user=request.user)
+                                # .exclude(pointexchange__buyer__user=request.user)
             )
             return Response(respn, status=respn['status'])
     

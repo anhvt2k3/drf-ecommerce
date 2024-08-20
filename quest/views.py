@@ -22,7 +22,7 @@ class QuestUserView(generics.ListAPIView):
     
     queryset = model_class.objects.all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['id', 'name']
+    search_fields = ['name','shop__name']
     
     def get(self, request, *args, **kwargs):
         date_q = Q(end_date__gte=now()) | Q(end_date__isnull=True)
