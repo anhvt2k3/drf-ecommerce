@@ -8,7 +8,7 @@ from product.models import Product
 ORDER_STATUS_CHOICES = [
     ('pending', 'Pending'),
     ('processing', 'Processing'),
-    ('delivered', 'Delivered'),
+    ('paid', 'Paid'),
     ('cancelled', 'Cancelled'),
 ]
 
@@ -21,6 +21,8 @@ class Order(SoftDeleteModelMixin, models.Model):
     total_charge = models.FloatField(default=0.00) #@ charges that is changed by Order Items
     final_charge = models.FloatField(default=0.00) #@ charges that is changed by Discount
 
+    receipt = models.JSONField(default=dict)
+    
     description = models.TextField(default="An Order which is created by User that consists of many Order Items.")
     
     @property
