@@ -55,5 +55,4 @@ urlpatterns = [
     "defaultPromo": 4,    
 }
 
-
 """
