@@ -1,12 +1,13 @@
-from cart.models import Cart, CartItem
+from django.shortcuts import redirect
+import stripe
 from eco_sys.permissions import IsMerchant
 from order.filters import OrderUserFilterSet
+from payment.models import Payment
 from shop.models import Shop
 from .models import Order
 from .serializers import *
-from sqlite3 import connect
 from eco_sys.utils import *
-from certifi import contents
+from eco_sys.secrets import STRIPE_SECRET_KEY, NGROK_DOMAIN, STRIPE_WEBHOOK_SECRET
 from rest_framework import generics, mixins
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -405,6 +406,95 @@ class OrderItemUserView(generics.GenericAPIView):
                 return Response(data, data['status'])
             data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='OrderItems deleted successfully.', data=f'Number of OrderItems deleted: {len(serializer_)}')
             return Response(data, data['status'])
+
+
+
+class PaymentView(generics.GenericAPIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, *args, **kwargs):
+        paid_orders = Order.objects.filter(user=request.user, status='paid')
+        data = ViewUtils.paginated_get_response(
+            self,
+            request,
+            OrderPaidSerializer,
+            paid_orders
+        )
+        return Response(data, data['status'])
+    
+    def post(self, request, *args, **kwargs):
+        pi = OrderPaidSerializer(data=request.data)
+        if not pi.is_valid():
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Invalid data.', data=pi.errors)
+            return Response(data, data['status'])
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data=pi.data)
+        return Response(data, status=data['status'])
+
+# class PaymentSuccessView(generics.GenericAPIView):
+#     def get(self, request, *args, **kwargs):
+#         data=ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data='Payment successful.')
+#         return Response(data, status=data['status'])
+
+# class PaymentCancelView(generics.GenericAPIView):
+#     def get(self, request, *args, **kwargs):
+#         data=ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Payment failed.', data='Payment failed.')
+#         return Response(data, status=data['status'])
+
+class PaymentStripeWebhookView(generics.GenericAPIView):
+    authentication_classes = []
+    permission_classes = []
+    
+    def post(self, request, *args, **kwargs):
+        print ('WEBHOOK CALLED')
+        payload = request.body
+        sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+        stripe.api_key = STRIPE_SECRET_KEY
+        endpoint_secret = STRIPE_WEBHOOK_SECRET
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, endpoint_secret
+            )
+        except ValueError as e:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Invalid payload.', data=str(e))
+            return Response(data, status=data['status'])
+        except stripe.error.SignatureVerificationError as e:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Invalid signature.', data=str(e))
+            return Response(data, data['status'])
+
+        # Handle the event
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            return self.handle_successful_payment(session)
+
+        elif event['type'] == 'payment_intent.payment_failed':
+            payment_intent = event['data']['object']
+            return self.handle_failed_payment(payment_intent)
+
+    def handle_successful_payment(session):
+        """
+        Handle the successful payment logic here.
+        """
+        session = session['data']['object']  # Checkout Session object
+        order_id = session['metadata']['order_id']
+        OrderSerializer().update(Order.objects.filter(id=order_id).first(), {'status':'processing'})
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data=session)
+        return Response(data, status=data['status'])
+            
+
+    def handle_failed_payment(payment_intent):
+        """
+        Handle the failed payment logic here.
+        """
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment failed. Forget something in your purchase?', data=payment_intent)
+        return Response(data, status=data['status'])
+            
+
+
+
+
+
 
 
 

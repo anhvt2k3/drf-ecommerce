@@ -1,7 +1,10 @@
+import stripe
 from cart.models import Cart, CartItem
+from eco_sys.secrets import STRIPE_SECRET_KEY
 from exchange.models import PointExchange
 from flashsale.models import Flashsale, FlashsaleProduct
 from order.models import OrderItem
+from payment.models import Payment
 from .models import *
 from .utils.utils import *
 
@@ -11,6 +14,14 @@ from product.models import Product
 from .tasks import loyalty_logics,apply_benefit
 import threading
 
+import datetime
+
+def convert_unix_to_iso8601(unix_timestamp):
+    # Convert Unix timestamp to UTC datetime
+    utc_time = datetime.datetime.utcfromtimestamp(unix_timestamp)
+    # Format datetime object to ISO 8601 format
+    iso_format_time = utc_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return iso_format_time
 class FlashsaleApplySerializer(serializers.Serializer):
     flashsale = serializers.PrimaryKeyRelatedField(queryset=Flashsale.objects.all())
     
@@ -273,10 +284,6 @@ class OrderSerializer(serializers.Serializer):
     def update(self, instance :models.Model, validated_data):
         if 'coupon' in validated_data:
             raise serializers.ValidationError('Coupon should be applied on creating the Order!')
-        #! apply loyalty logics 
-        if 'status' in validated_data:
-            if instance.status == 'pending' and validated_data.get('status') == 'processing':
-                threading.Thread(target=loyalty_logics, args=(instance,)).start()
 
         instance = instance 
         validated_data = validated_data
@@ -382,6 +389,64 @@ class OrderDetailSerializer(OrderSerializer):
             'applied benefits': [item.source for item in instance.orderbenefit_set.all()],
         }
 
+class OrderPaidSerializer(serializers.Serializer):
+    order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all())
+    payment = serializers.PrimaryKeyRelatedField(queryset=Payment.objects.all(), required=False)
+    
+    def validate(self, data) -> Order:
+        if not data.get('payment'):
+            data['payment'] = Payment.objects.filter(user=self.order.user).first()
+        elif data['payment'].user != data['order'].user:
+            raise serializers.ValidationError('Payment Method doesn\'t belong to the requesting User!')
+        order = data.get('order')
+        order.status = 'processing'
+        order.save()
+        pm = data.get('payment').method_object.get('id')
+        try:
+            stripe.api_key = STRIPE_SECRET_KEY
+            pi_response = stripe.PaymentIntent.create(
+                    amount=order.final_charge * 100,  # Convert dollars to cents
+                    currency="usd",
+                    payment_method=pm, #* `pm_card_visa`, etc.. supposed to be here
+                    confirm=True,
+                    automatic_payment_methods={"allow_redirects": "never", "enabled": True},
+                    metadata={'order_id': order.id}
+            )
+            if pi_response.status != 'succeeded':
+                raise serializers.ValidationError('Payment was not successful!')
+            else:
+                order.receipt = pi_response
+                order.status = 'paid'
+                order.save()
+                return order
+        except Exception as e:
+            raise serializers.ValidationError(e)
+    
+    def to_representation(self, instance):
+        instance = instance or self.order ## error is most likely to be here
+        
+        receipt = instance.receipt
+        pm = stripe.PaymentMethod.retrieve(receipt.get('payment_method'))
+        method_details = pm.get(pm.type)
+        method_details_ = {key: method_details[key] for key in method_details.keys() if key in ['brand', 'country', 'funding', 'issuer', 'last4']}
+        return {
+            **SerializerUtils.representation_dict_formater(
+                ['total_charge', 'status', 'final_charge'],
+                instance=instance
+            ),
+            f'user [{instance.user.id}]': instance.user.username,
+            'shop': instance.orderitem_set.first().product.shop.name if instance.orderitem_set.first() else None,
+            'ordered_items': len(instance.orderitem_set.all()),
+            'coupon': instance.coupon.id if instance.coupon else None,
+            'promotion': instance.promotion.id if instance.promotion else None,
+            'applied benefits': [item.source for item in instance.orderbenefit_set.all()],
+            'receipt': {
+                "paid_at": convert_unix_to_iso8601(receipt.get('created')),
+                "payment_method": method_details_,
+                "status": receipt.get('status'),
+                "confirmation_method": receipt.get('confirmation_method'),
+                },
+        }
         
 class OrderUserSerializer(OrderSerializer):
     def validate(self, data):

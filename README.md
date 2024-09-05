@@ -2,5 +2,4 @@ an ecommerce Backend system written with DRF support ordinary functionalities wi
 
 
 On developing features:
-- Payment
 - Shipment
