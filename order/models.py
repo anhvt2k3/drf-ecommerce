@@ -8,7 +8,7 @@ from product.models import Product
 ORDER_STATUS_CHOICES = [
     ('pending', 'Pending'),
     ('processing', 'Processing'),
-    ('delivered', 'Delivered'),
+    ('paid', 'Paid'),
     ('cancelled', 'Cancelled'),
 ]
 

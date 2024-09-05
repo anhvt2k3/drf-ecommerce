@@ -9,6 +9,11 @@ urlpatterns = [
     path('orderitems/my/<int:pk>/', OrderItemShopView.as_view()),
     path('checkout/me/', CheckoutView.as_view()),
     
+    path('payments/<int:pk>', PaymentView.as_view()),
+    path('payment-success/', PaymentSuccessView.as_view()),
+    path('payment-cancel/', PaymentCancelView.as_view()),
+    path('webhooks/stripe/', PaymentStripeWebhookView.as_view()),
+    
     path('orders/me/', OrderUserView.as_view()),
     path('orders/me/<int:pk>/', OrderUserView.as_view()),
     path('orders/my/', OrderShopView.as_view()),

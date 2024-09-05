@@ -273,10 +273,6 @@ class OrderSerializer(serializers.Serializer):
     def update(self, instance :models.Model, validated_data):
         if 'coupon' in validated_data:
             raise serializers.ValidationError('Coupon should be applied on creating the Order!')
-        #! apply loyalty logics 
-        if 'status' in validated_data:
-            if instance.status == 'pending' and validated_data.get('status') == 'processing':
-                threading.Thread(target=loyalty_logics, args=(instance,)).start()
 
         instance = instance 
         validated_data = validated_data
