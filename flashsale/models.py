@@ -8,6 +8,8 @@ class Flashsale(SoftDeleteModelMixin, models.Model):
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     
+    description = models.TextField(default="A Flashsale that is created by Shop that consists of many Flashsale Products.")
+    
 class FlashsaleLimit(SoftDeleteModelMixin, models.Model):
     type = models.CharField(max_length=200)
     value = models.TextField()

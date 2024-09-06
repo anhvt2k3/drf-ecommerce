@@ -9,9 +9,9 @@ urlpatterns = [
     path('orderitems/my/<int:pk>/', OrderItemShopView.as_view()),
     path('checkout/me/', CheckoutView.as_view()),
     
-    path('payments/<int:pk>', PaymentView.as_view()),
-    path('payment-success/', PaymentSuccessView.as_view()),
-    path('payment-cancel/', PaymentCancelView.as_view()),
+    path('pay/<int:pk>', PaymentView.as_view()),
+    # path('pay-success/', PaymentSuccessView.as_view()),
+    # path('pay-cancel/', PaymentCancelView.as_view()),
     path('webhooks/stripe/', PaymentStripeWebhookView.as_view()),
     
     path('orders/me/', OrderUserView.as_view()),
@@ -51,4 +51,28 @@ urlpatterns = [
 
 
 
+        orderitems = [
+            {
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': item.product.name,
+                    },
+                    'unit_amount': int(item.price * 100),  # Convert dollars to cents
+                },
+                'quantity': item.quantity,
+            }
+            for item in order.orderitem_set.all()]
+        if order.final_charge != order.total_charge:
+            orderitems.append(
+            {
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': 'Discount',
+                    },
+                    'unit_amount': int((order.total_charge - order.final_charge) * 100),  # Convert dollars to cents
+                },
+                'quantity': 1,
+            })
 """
