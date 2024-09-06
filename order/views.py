@@ -7,7 +7,7 @@ from shop.models import Shop
 from .models import Order
 from .serializers import *
 from eco_sys.utils import *
-from eco_sys.secrets import STRIPE_SECRET_KEY, NGROK_DOMAIN
+from eco_sys.secrets import STRIPE_SECRET_KEY, NGROK_DOMAIN, STRIPE_WEBHOOK_SECRET
 from rest_framework import generics, mixins
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -473,7 +473,7 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         payload = request.body
         sig_header = request.META['HTTP_STRIPE_SIGNATURE']
         stripe.api_key = STRIPE_SECRET_KEY
-        endpoint_secret = 'whsec_hqqCUU77yuDSvQSH6dqwqkzU6126bJH4'
+        endpoint_secret = STRIPE_WEBHOOK_SECRET
 
         try:
             event = stripe.Webhook.construct_event(
