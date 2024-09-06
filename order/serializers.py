@@ -18,7 +18,7 @@ import datetime
 
 def convert_unix_to_iso8601(unix_timestamp):
     # Convert Unix timestamp to UTC datetime
-    utc_time = datetime.datetime.utcfromtimestamp(unix_timestamp)
+    utc_time = datetime.datetime.fromtimestamp(unix_timestamp)
     # Format datetime object to ISO 8601 format
     iso_format_time = utc_time.strftime('%Y-%m-%dT%H:%M:%SZ')
     return iso_format_time
@@ -393,9 +393,15 @@ class OrderPaidSerializer(serializers.Serializer):
     order = serializers.PrimaryKeyRelatedField(queryset=Order.objects.all())
     payment = serializers.PrimaryKeyRelatedField(queryset=Payment.objects.all(), required=False)
     
+    def validate_order(self, order):
+        ## disabled for testing purposes
+        # if order.status != 'pending':
+        #     raise serializers.ValidationError('Order is paid or in processing! Please standby for the result.')
+        return order
+    
     def validate(self, data) -> Order:
         if not data.get('payment'):
-            data['payment'] = Payment.objects.filter(user=self.order.user).first()
+            data['payment'] = Payment.objects.filter(user=data.get('order').user).first()
         elif data['payment'].user != data['order'].user:
             raise serializers.ValidationError('Payment Method doesn\'t belong to the requesting User!')
         order = data.get('order')
@@ -405,7 +411,7 @@ class OrderPaidSerializer(serializers.Serializer):
         try:
             stripe.api_key = STRIPE_SECRET_KEY
             pi_response = stripe.PaymentIntent.create(
-                    amount=order.final_charge * 100,  # Convert dollars to cents
+                    amount=int((order.final_charge + 0.005) * 100),  # Convert dollars to cents
                     currency="usd",
                     payment_method=pm, #* `pm_card_visa`, etc.. supposed to be here
                     confirm=True,
@@ -426,6 +432,7 @@ class OrderPaidSerializer(serializers.Serializer):
         instance = instance or self.order ## error is most likely to be here
         
         receipt = instance.receipt
+        stripe.api_key = STRIPE_SECRET_KEY
         pm = stripe.PaymentMethod.retrieve(receipt.get('payment_method'))
         method_details = pm.get(pm.type)
         method_details_ = {key: method_details[key] for key in method_details.keys() if key in ['brand', 'country', 'funding', 'issuer', 'last4']}
@@ -442,6 +449,7 @@ class OrderPaidSerializer(serializers.Serializer):
             'applied benefits': [item.source for item in instance.orderbenefit_set.all()],
             'receipt': {
                 "paid_at": convert_unix_to_iso8601(receipt.get('created')),
+                "paid_amount": float(receipt.get('amount') / 100),
                 "payment_method": method_details_,
                 "status": receipt.get('status'),
                 "confirmation_method": receipt.get('confirmation_method'),

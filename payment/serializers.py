@@ -12,7 +12,7 @@ class PaymentSerializer(serializers.Serializer):
         return data
     
     def create(self, validated_data):
-        type = validated_data.method_object.get('type')
+        type = validated_data.get('method_object').get('type')
         return Payment.objects.create(**{'type':type, **validated_data})
     
     def update(self, instance, validated_data):
@@ -28,4 +28,5 @@ class PaymentSerializer(serializers.Serializer):
             'user_id': instance.user.id,
             'user': instance.user.username,
             'type': instance.type,
+            'brand': instance.method_object.get(instance.type).get('brand'),
         }

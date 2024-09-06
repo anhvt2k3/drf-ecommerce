@@ -9,7 +9,7 @@ urlpatterns = [
     path('orderitems/my/<int:pk>/', OrderItemShopView.as_view()),
     path('checkout/me/', CheckoutView.as_view()),
     
-    path('pay/<int:pk>', PaymentView.as_view()),
+    path('pay/', PaymentView.as_view()),
     # path('pay-success/', PaymentSuccessView.as_view()),
     # path('pay-cancel/', PaymentCancelView.as_view()),
     path('webhooks/stripe/', PaymentStripeWebhookView.as_view()),

@@ -25,7 +25,7 @@ class PaymentUserView(generics.GenericAPIView):
         return Response(data, data['status'])
     
     def post(self, request):
-        serializer = self.serializer_class(data={'user': request.user, **request.data})
+        serializer = self.serializer_class(data={'user': request.user.id, **request.data})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
         data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
