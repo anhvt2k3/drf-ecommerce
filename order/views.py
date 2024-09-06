@@ -413,63 +413,40 @@ class PaymentView(generics.GenericAPIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
+    def get(self, request, *args, **kwargs):
+        paid_orders = Order.objects.filter(user=request.user, status='paid')
+        data = ViewUtils.paginated_get_response(
+            self,
+            request,
+            OrderPaidSerializer,
+            paid_orders
+        )
+        return Response(data, data['status'])
+    
     def post(self, request, *args, **kwargs):
-        order = Order.objects.filter(id=kwargs['pk'], user=request.user).first()
-        pm = Payment.objects.filter(user=request.user).first().method_object['id']
-        # orderitems = [
-        #     {
-        #         'price_data': {
-        #             'currency': 'usd',
-        #             'product_data': {
-        #                 'name': item.product.name,
-        #             },
-        #             'unit_amount': int(item.price * 100),  # Convert dollars to cents
-        #         },
-        #         'quantity': item.quantity,
-        #     }
-        #     for item in order.orderitem_set.all()]
-        # if order.final_charge != order.total_charge:
-        #     orderitems.append(
-        #     {
-        #         'price_data': {
-        #             'currency': 'usd',
-        #             'product_data': {
-        #                 'name': 'Discount',
-        #             },
-        #             'unit_amount': int((order.total_charge - order.final_charge) * 100),  # Convert dollars to cents
-        #         },
-        #         'quantity': 1,
-        #     })
-        try:
-            stripe.api_key = STRIPE_SECRET_KEY
-            checkout_session = stripe.PaymentIntent.create(
-                    amount=2000,
-                    currency="usd",
-                    payment_method="pm_card_visa", #* `pm` supposed to be here
-                    confirm=True,
-                    automatic_payment_methods={"allow_redirects": "never", "enabled": True},
-            )
-            data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data=checkout_session)
-            return Response(data, status=data['status'])
-        except Exception as e:
-            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error received Stripe server.', data=str(e))
+        pi = OrderPaidSerializer(data=request.data)
+        if not pi.is_valid():
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Invalid data.', data=pi.errors)
             return Response(data, data['status'])
-
-class PaymentSuccessView(generics.GenericAPIView):
-    def get(self, request, *args, **kwargs):
-        data=ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data='Payment successful.')
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data=pi.data)
         return Response(data, status=data['status'])
 
-class PaymentCancelView(generics.GenericAPIView):
-    def get(self, request, *args, **kwargs):
-        data=ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Payment failed.', data='Payment failed.')
-        return Response(data, status=data['status'])
+# class PaymentSuccessView(generics.GenericAPIView):
+#     def get(self, request, *args, **kwargs):
+#         data=ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment successful.', data='Payment successful.')
+#         return Response(data, status=data['status'])
+
+# class PaymentCancelView(generics.GenericAPIView):
+#     def get(self, request, *args, **kwargs):
+#         data=ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Payment failed.', data='Payment failed.')
+#         return Response(data, status=data['status'])
 
 class PaymentStripeWebhookView(generics.GenericAPIView):
     authentication_classes = []
     permission_classes = []
     
     def post(self, request, *args, **kwargs):
+        print ('WEBHOOK CALLED')
         payload = request.body
         sig_header = request.META['HTTP_STRIPE_SIGNATURE']
         stripe.api_key = STRIPE_SECRET_KEY

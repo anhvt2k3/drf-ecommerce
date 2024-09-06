@@ -22,11 +22,11 @@ class FlashsaleUserView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
-            data = ViewUtils.get_response(
+            data = ViewUtils.paginated_get_response(
                 self,
                 request,
                 FlashsaleDetailSerializer,
-                Flashsale.objects.get(pk=kwargs['pk'], shop__buyer__user=request.user)
+                Flashsale.objects.filter(pk=kwargs['pk'], shop__buyer__user=request.user)
             )
             return Response(data, status=data['status'])
         else:
@@ -49,11 +49,11 @@ class FlashsaleShopView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
-            data = ViewUtils.get_response(
+            data = ViewUtils.paginated_get_response(
                 self,
                 request,
                 FlashsaleDetailSerializer,
-                Flashsale.objects.get(pk=kwargs['pk'], shop__merchant=request.user)
+                Flashsale.objects.filter(pk=kwargs['pk'], shop__merchant=request.user)
             )
             return Response(data, status=data['status'])
         else:
@@ -169,7 +169,7 @@ class FlashsaleLimitShopView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
-            data = ViewUtils.get_response(
+            data = ViewUtils.paginated_get_response(
                 self,
                 request,
                 FlashsaleLimitDetailSerializer,
@@ -196,7 +196,7 @@ class FlashsaleLimitManageView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
-            data = ViewUtils.get_response(
+            data = ViewUtils.paginated_get_response(
                 self,
                 request,
                 FlashsaleLimitDetailSerializer,
