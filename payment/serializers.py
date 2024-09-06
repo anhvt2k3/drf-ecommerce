@@ -5,15 +5,15 @@ from rest_framework import serializers
 
 class PaymentSerializer(serializers.Serializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
-    type = serializers.CharField(max_length=10)
     method_object = serializers.JSONField(default=dict)
     
     def validate(self, data):
-        # validate for correct Payment Method object here
+        ## validate for correct Payment Method object here
         return data
     
     def create(self, validated_data):
-        return Payment.objects.create(**validated_data)
+        type = validated_data.method_object.get('type')
+        return Payment.objects.create(**{'type':type, **validated_data})
     
     def update(self, instance, validated_data):
         instance.user = validated_data.get('user', instance.user)

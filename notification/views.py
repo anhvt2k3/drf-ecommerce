@@ -23,11 +23,11 @@ class NotificationUserView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
-            data = ViewUtils.get_response(
+            data = ViewUtils.paginated_get_response(
                 self,
                 request,
                 NotificationDetailSerializer,
-                self.model_class.objects.get(pk=kwargs['pk'], shop__buyer__user=request.user)
+                self.model_class.objects.filter(pk=kwargs['pk'], shop__buyer__user=request.user)
             )
             return Response(data, status=data['status'])
         else:
