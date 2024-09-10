@@ -21,6 +21,7 @@ from .views import DebugView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('debug/', DebugView.as_view()),
+    path('', include('refund.urls')),
     path('', include('payment.urls')),
     path('', include('notification.urls')),
     path('', include('flashsale.urls')),

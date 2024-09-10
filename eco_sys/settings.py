@@ -49,7 +49,12 @@ SECURE_HSTS_PRELOAD = False
 #! SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '50ef-116-102-44-50.ngrok-free.app',
+    'profound-moccasin-composed.ngrok-free.app',
+    'localhost',
+    '127.0.0.1'
+    ]
 
 
 # Application definition
@@ -65,6 +70,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions',
     'django_filters',
+    'refund',
     'payment',
     'flashsale',
     'notification',

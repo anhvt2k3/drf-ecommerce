@@ -471,6 +471,9 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         elif event['type'] == 'payment_intent.payment_failed':
             payment_intent = event['data']['object']
             return self.handle_failed_payment(payment_intent)
+        
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invalid event type.', data=event['type'])
+        return Response(data, status=data['status'])
 
     def handle_successful_payment(session):
         """
