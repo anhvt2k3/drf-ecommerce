@@ -7,4 +7,3 @@ class Payment(SoftDeleteModelMixin, models.Model):
     type = models.CharField(max_length=10)
     method_object = models.JSONField(default=dict)
     
-    

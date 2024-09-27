@@ -415,6 +415,7 @@ class OrderPaidSerializer(serializers.Serializer):
                     currency="usd",
                     payment_method=pm, #* `pm_card_visa`, etc.. supposed to be here
                     confirm=True,
+                    # off_session=True, #* optional
                     automatic_payment_methods={"allow_redirects": "never", "enabled": True},
                     metadata={'order_id': order.id}
             )

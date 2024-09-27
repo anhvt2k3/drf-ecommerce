@@ -1,6 +1,4 @@
 from django.db import models
-from django.utils import timezone
-from datetime import timedelta
 from eco_sys.mixins import SoftDeleteModelMixin
 
 # Create your models here.
