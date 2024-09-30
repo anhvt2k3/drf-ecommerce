@@ -1,22 +1,26 @@
-from user.models import User
+import stripe
+from ..eco_sys import secrets
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
 
 class TierSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
-    price = serializers.FloatField()
-    period = serializers.DurationField()
-    stripeProductID = serializers.CharField(max_length=200, required=False)
+    level = serializers.IntegerField()
 
     def create(self, validated_data):
+        stripe.api_key = secrets.STRIPE_SECRET_KEY
+        
+        validated_data['stripeProductID'] = stripe.Product.create(
+                            **{ 'name':validated_data['name'],
+                                'metadata': { 'level': validated_data['level'] }
+                                })
         return Tier.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
         instance.name = validated_data.get('name', instance.name)
         instance.price = validated_data.get('price', instance.price)
         instance.period = validated_data.get('period', instance.period)
-        instance.stripeProductID = validated_data.get('stripeProductID', instance.stripeProductID)
         instance.description = validated_data.get('description', instance.description)
         instance.save()
         return instance
@@ -87,7 +91,7 @@ class TierFeatureSerializer(serializers.Serializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.representation_dict_formater(
-                [],
+                ['limitation'],
                 instance
             ),
             'tier_id': instance.tier.id,
@@ -112,11 +116,15 @@ class TierFeatureDetailSerializer(TierFeatureSerializer):
 class PlanSerializer(serializers.Serializer):
     tier = serializers.PrimaryKeyRelatedField(queryset=Tier.objects.all())
     name = serializers.CharField(max_length=200)
-    interval = serializers.DurationField()
+    interval = serializers.DurationField() # must be in days
     price = serializers.FloatField()
-    charge = serializers.FloatField()
     
     def create(self, validated_data):
+        stripe.api_key = secrets.STRIPE_SECRET_KEY
+        validated_data['stripePriceID'] = stripe.Price.create(**{
+            'product': validated_data['tier'].stripeProductID,
+            'recurring': {"interval": "day", "interval_count": validated_data['interval'].days},
+                                            })
         return Plan.objects.create(**validated_data)
     
     def update(self, instance, validated_data):
@@ -124,7 +132,6 @@ class PlanSerializer(serializers.Serializer):
         instance.name = validated_data.get('name', instance.name)
         instance.interval = validated_data.get('interval', instance.interval)
         instance.price = validated_data.get('price', instance.price)
-        instance.charge = validated_data.get('charge', instance.charge)
         instance.description = validated_data.get('description', instance.description)
         instance.save()
         return instance
@@ -143,7 +150,7 @@ class PlanDetailSerializer(PlanSerializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.detail_dict_formater(
-                ['name', 'interval', 'price', 'charge'],
+                ['name', 'interval', 'price', 'charge', 'stripePriceID'],
                 instance
             ),
             'tier_id': instance.tier.id,

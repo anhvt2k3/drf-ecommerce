@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions',
     'django_filters',
+    'subscription',
     'refund',
     'payment',
     'flashsale',

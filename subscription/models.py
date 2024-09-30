@@ -4,8 +4,7 @@ from eco_sys.mixins import SoftDeleteModelMixin
 # Create your models here.
 class Tier(SoftDeleteModelMixin, models.Model):
     name = models.CharField(max_length=200)
-    price = models.FloatField(default=0)
-    period = models.DurationField()
+    level = models.IntegerField() # level of priority
     stripeProductID = models.CharField(max_length=200)
 
     description = models.TextField(default="A Tier that is available for Subscription.")
@@ -26,8 +25,8 @@ class Plan(SoftDeleteModelMixin, models.Model):
     name = models.CharField(max_length=200)
     interval = models.DurationField()
     price = models.FloatField(default=0)
-    charge = models.FloatField(default=0)
-
+    stripePriceID = models.CharField(max_length=200)
+    
     description = models.TextField(default="A Plan that is available for Subscription.")
 
 class Invoice(SoftDeleteModelMixin, models.Model):
@@ -44,8 +43,7 @@ class Subscription(SoftDeleteModelMixin, models.Model):
     paystatus = models.CharField(max_length=200)
     start_date = models.DateTimeField()
     expire_date = models.DateTimeField()
-    stripePriceID = models.CharField(max_length=200)
-    stripeID = models.CharField(max_length=200)
+    stripeSubscriptionID = models.CharField(max_length=200)
 
     description = models.TextField(default="A Subscription that is created by User to attain Tier benefits.")
     
