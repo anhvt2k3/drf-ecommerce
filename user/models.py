@@ -9,6 +9,7 @@ AUTH_PROVIDERS = {'email': 'email', 'google': 'google'}
 class User(AbstractUser, SoftDeleteModelMixin ):
     username = models.EmailField(max_length=50, unique=True)
     password = models.CharField(max_length=255, default="unused-password")
+    stripeCustomerID = models.CharField(max_length=200, blank=True, null=True)
     
     phone = models.CharField(max_length=10, blank=True, null=True)
     address = models.TextField(max_length=100, blank=True, null=True)

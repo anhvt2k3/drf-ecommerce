@@ -41,8 +41,8 @@ class Subscription(SoftDeleteModelMixin, models.Model):
     plan = models.ForeignKey(Plan, on_delete=models.CASCADE)
     status = models.CharField(max_length=200)
     paystatus = models.CharField(max_length=200)
-    start_date = models.DateTimeField()
-    expire_date = models.DateTimeField()
+    start_date = models.DateTimeField(null=True, blank=True)
+    expire_date = models.DateTimeField(null=True, blank=True)
     stripeSubscriptionID = models.CharField(max_length=200)
 
     description = models.TextField(default="A Subscription that is created by User to attain Tier benefits.")

@@ -9,24 +9,127 @@ from .utils.utils import *
 
 
 # Create your views here.
-class PaymentUserView(generics.GenericAPIView):
-    serializer_class = PaymentSerializer
-    permission_classes = [IsAuthenticated]
+class FeatureAdminView(generics.GenericAPIView):
+    serializer_class = FeatureSerializer
+    permission_classes = [IsAdminUser]
     authentication_classes = [JWTAuthentication]
     
-    def get(self, request):
-        user = request.user
-        data = ViewUtils.paginated_get_response(
+    def get(self, request, *args, **kwargs):
+        if 'pk' in kwargs:
+            data = ViewUtils.paginated_get_response(
                     self,
                     request,
-                    self.serializer_class,
-                    Payment.objects.filter(user=user)                                                
+                    FeatureDetailSerializer,
+                    Feature.objects.get(id=kwargs['pk'])
                 )
+        else:
+            data = ViewUtils.paginated_get_response(
+                        self,
+                        request,
+                        self.serializer_class,
+                        Feature.objects.filter()                                                
+                    )
         return Response(data, data['status'])
     
     def post(self, request):
-        serializer = self.serializer_class(data={'user': request.user.id, **request.data})
+        serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-        data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+        else:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
         return Response(data, data['status'])
+    
+class TierAdminView(generics.GenericAPIView):
+    serializer_class = TierSerializer
+    permission_classes = [IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, *args, **kwargs):
+        if 'pk' in kwargs:
+            data = ViewUtils.paginated_get_response(
+                    self,
+                    request,
+                    TierDetailSerializer,
+                    Tier.objects.get(id=kwargs['pk'])
+                )
+        else:
+            data = ViewUtils.paginated_get_response(
+                        self,
+                        request,
+                        self.serializer_class,
+                        Tier.objects.filter()                                                
+                    )
+        return Response(data, data['status'])
+    
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+        else:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
+        return Response(data, data['status'])
+    
+class TierFeatureAdminView(generics.GenericAPIView):
+    serializer_class = TierFeatureSerializer
+    permission_classes = [IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, *args, **kwargs):
+        if 'pk' in kwargs:
+            data = ViewUtils.paginated_get_response(
+                    self,
+                    request,
+                    TierFeatureDetailSerializer,
+                    TierFeature.objects.get(id=kwargs['pk'])
+                )
+        else:
+            data = ViewUtils.paginated_get_response(
+                        self,
+                        request,
+                        self.serializer_class,
+                        TierFeature.objects.filter()                                                
+                    )
+        return Response(data, data['status'])
+    
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+        else:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
+        return Response(data, data['status'])
+    
+class PlanAdminView(generics.GenericAPIView):
+    serializer_class = PlanSerializer
+    permission_classes = [IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, *args, **kwargs):
+        if 'pk' in kwargs:
+            data = ViewUtils.paginated_get_response(
+                    self,
+                    request,
+                    PlanDetailSerializer,
+                    Plan.objects.get(id=kwargs['pk'])
+                )
+        else:
+            data = ViewUtils.paginated_get_response(
+                        self,
+                        request,
+                        self.serializer_class,
+                        Plan.objects.filter()                                                
+                    )
+        return Response(data, data['status'])
+    
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+        else:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
+        return Response(data, data['status'])
+    
