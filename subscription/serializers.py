@@ -17,7 +17,7 @@ class TierSerializer(serializers.Serializer):
         validated_data['stripeProductID'] = stripe.Product.create(
                             **{ 'name':validated_data['name'],
                                 'metadata': { 'level': validated_data['level'] }
-                                })
+                                }).id
         return Tier.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
@@ -125,7 +125,7 @@ class PlanSerializer(serializers.Serializer):
         validated_data['stripePriceID'] = stripe.Price.create(**{
             'product': validated_data['tier'].stripeProductID,
             'recurring': {"interval": "day", "interval_count": validated_data['interval'].days},
-                                            })
+                                            }).id
         return Plan.objects.create(**validated_data)
     
     def update(self, instance, validated_data):
@@ -176,25 +176,29 @@ class SubscriptionSerializer(serializers.Serializer):
         else:
             return Payment.objects.filter(user=self.user).first()
     
-    def create(self, validated_data):
+    def create(self, validated_data :dict):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
+        #* Decide the payment method
+        decided_pm = validated_data.get('paymethod', Payment.objects.filter(user=validated_data['user']).first().method_object['id'])
         #* Create the customer if user does not have one
         #! This is the only place where a Customer is created
         if not validated_data['user'].stripeCustomerID:
             customerID = validated_data['user'].stripeCustomerID = stripe.Customer.create(
                 email=validated_data['user'].email
-            )
+            ).id
             validated_data['user'].save()
-        else:
+        else: 
             customerID = validated_data['user'].stripeCustomerID
+        #* Attach the payment method
+        stripe.PaymentMethod.attach(decided_pm, customer=customerID)
         #* Create the subscription
-        validated_data['stripeSubscriptionID'] = stripe.Subscription.create(**{
-            'customer': customerID,
-            'items': [{
+        validated_data['stripeSubscriptionID'] = stripe.Subscription.create(
+            customer = customerID,
+            items = [{
                 'price': validated_data['plan'].stripePriceID
             }],
-            'default_payment_method': Payment.objects.filter(user=validated_data['user']).first().method_object['id']
-        })
+            default_payment_method = decided_pm
+        ).id
         #* Fill in fields
         validated_data['tier'] = validated_data['plan'].tier
         validated_data['status'] = 'pending'
