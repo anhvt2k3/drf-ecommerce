@@ -10,7 +10,6 @@ urlpatterns = [
     path('benefits/me/', BenefitUserView.as_view()),
     path('benefits/me/<int:pk>/', BenefitUserView.as_view()),
     
-    
     path('benefits/my/', BenefitsShopView.as_view()),
     path('benefits/my/<int:pk>/', BenefitsShopView.as_view()),
     path('benefitcfs/my/', BenefitConfigShopView.as_view()),

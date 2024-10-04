@@ -178,19 +178,23 @@ class SubscriptionSerializer(serializers.Serializer):
     
     def create(self, validated_data :dict):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
+        
         #* Decide the payment method
         decided_pm = validated_data.get('paymethod', Payment.objects.filter(user=validated_data['user']).first().method_object['id'])
+        
         #* Create the customer if user does not have one
         #! This is the only place where a Customer is created
         if not validated_data['user'].stripeCustomerID:
             customerID = validated_data['user'].stripeCustomerID = stripe.Customer.create(
                 email=validated_data['user'].email
-            ).id
+        ).id
             validated_data['user'].save()
         else: 
             customerID = validated_data['user'].stripeCustomerID
+        
         #* Attach the payment method
         stripe.PaymentMethod.attach(decided_pm, customer=customerID)
+        
         #* Create the subscription
         validated_data['stripeSubscriptionID'] = stripe.Subscription.create(
             customer = customerID,
@@ -199,6 +203,7 @@ class SubscriptionSerializer(serializers.Serializer):
             }],
             default_payment_method = decided_pm
         ).id
+        
         #* Fill in fields
         validated_data['tier'] = validated_data['plan'].tier
         validated_data['status'] = 'pending'
