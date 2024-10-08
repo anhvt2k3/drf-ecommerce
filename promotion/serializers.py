@@ -1,11 +1,12 @@
-from benefit.models import DefaultBenefit
 from notification.models import Notification
 from notification.serializers import NotificationSerializer
 from shop.models import Shop
-from shop.serializers import ShopDetailSerializer, ShopSerializer
+from shop.serializers import ShopDetailSerializer
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
+from django.utils import timezone
+from datetime import timedelta
 
 
 class DefaultPromotionSerializer(serializers.Serializer):

@@ -12,7 +12,6 @@ urlpatterns = [
     path('pay/', PaymentView.as_view()),
     # path('pay-success/', PaymentSuccessView.as_view()),
     # path('pay-cancel/', PaymentCancelView.as_view()),
-    path('webhooks/stripe/', PaymentStripeWebhookView.as_view()),
     
     path('orders/me/', OrderUserView.as_view()),
     path('orders/me/<int:pk>/', OrderUserView.as_view()),

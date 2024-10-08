@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions',
     'django_filters',
+    'webhook',
     'subscription',
     'refund',
     'payment',
@@ -98,6 +99,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'subscription.middleware.FeatureAccessMiddleware',
 ]
 
 ROOT_URLCONF = 'eco_sys.urls'
