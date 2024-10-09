@@ -2,7 +2,7 @@ from rest_framework.urlpatterns import path, include
 from .views import *
 
 urlpatterns = [
-    # path('subscription/my/', PaymentUserView.as_view()),
+    path('subscriptions/my/', SubscriptionMerchantView.as_view()),
 ] 
 
 """ 
@@ -13,6 +13,9 @@ Limit Design Dictionary:
         'none' : access is not allowed,
         'limited' : access is allowed with limits,
         'unlimited' : access is allowed without any limits
+        
+Limit - Progression Mapping:
+    - 'day-cap' ->
     
 
     'Basic': {
@@ -32,7 +35,7 @@ Limit Design Dictionary:
             'week-cap': 35         # 35 notifications allowed per week
         },
         'Loyalty Program': {
-            'access': 'limited' # Limited loyalty program access
+            'access': 'none' # Limited loyalty program access
         }
     },
     'Personal': {
@@ -52,7 +55,7 @@ Limit Design Dictionary:
             'week-cap': 70         # 70 notifications allowed per week
         },
         'Loyalty Program': {
-            'access': 'limited' # Limited loyalty program access
+            'access': 'none' # Limited loyalty program access
         }
     },
     'Business': {

@@ -6,6 +6,7 @@ from ..eco_sys import secrets
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
+from django.utils.timezone import datetime
 
 class TierSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
@@ -47,7 +48,7 @@ class TierDetailSerializer(TierSerializer):
         
 class FeatureSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
-    path = serializers.CharField(max_length=200)
+    path = serializers.ListField(child=serializers.CharField())
     
     def create(self, validated_data):
         return Feature.objects.create(**validated_data)
@@ -267,6 +268,8 @@ class ProgressSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
+        now = datetime.now()
+        
         return {
             **SerializerUtils.representation_dict_formater(
                 ['isActivated', 'progression'],

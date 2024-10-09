@@ -2,6 +2,7 @@ from django.db import models
 from eco_sys.mixins import SoftDeleteModelMixin
 
 # Create your models here.
+
 class Tier(SoftDeleteModelMixin, models.Model):
     name = models.CharField(max_length=200)
     level = models.IntegerField() # level of priority
@@ -11,7 +12,7 @@ class Tier(SoftDeleteModelMixin, models.Model):
     
 class Feature(SoftDeleteModelMixin, models.Model):
     name = models.CharField(max_length=200)
-    path = models.CharField(max_length=200)
+    path = models.JSONField(default=list)
 
     description = models.TextField(default="A feature that is available for Subscription.")
     

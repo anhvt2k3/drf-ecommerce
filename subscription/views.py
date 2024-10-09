@@ -9,7 +9,31 @@ from .utils.utils import *
 
 
 # Create your views here.
-class SubscriptionUserView(generics.GenericAPIView):
+class ProgressionMerchantView(generics.GenericAPIView):
+    serializer_class = ProgressSerializer
+    permission_classes = [IsMerchant]
+    authentication_classes = [JWTAuthentication]
+    
+    def get(self, request, *args, **kwargs):
+        data = ViewUtils.paginated_get_response(
+                    self,
+                    request,
+                    self.serializer_class,
+                    Progress.objects.filter(user=request.user)                                                 
+                )
+        
+        return Response(data, data['status'])
+    
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+        else:
+            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
+        return Response(data, data['status'])
+    
+class SubscriptionMerchantView(generics.GenericAPIView):
     serializer_class = SubscriptionSerializer
     permission_classes = [IsMerchant]
     authentication_classes = [JWTAuthentication]
