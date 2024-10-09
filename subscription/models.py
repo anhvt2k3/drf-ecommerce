@@ -21,7 +21,7 @@ class Feature(SoftDeleteModelMixin, models.Model):
         return apps.get_model(self.model_class)
 
     description = models.TextField(default="A feature that is available for Subscription.")
-    
+
 class TierFeature(SoftDeleteModelMixin, models.Model):
     tier = models.ForeignKey(Tier, on_delete=models.CASCADE)
     feature = models.ForeignKey(Feature, on_delete=models.CASCADE)

@@ -17,6 +17,7 @@ class FeatureAccessMiddleware:
         if not (forbidResponse := self.limitNprogression_reconcile(
                                     feature_limits=feature_limits,
                                     progression=progression,
+                                    shop=request.user.shop,
                                     feature=feature
                                         )):
             return forbidResponse
@@ -31,7 +32,7 @@ class FeatureAccessMiddleware:
             return None
         return Feature.objects.filter(path__in=[fpath]).first()
     
-    def limitNprogression_reconcile(self, feature_limits, progression, feature: Feature):
+    def limitNprogression_reconcile(self, feature_limits, progression, shop, feature: Feature):
         # Check if the user has reached the limit for the feature
         from django.utils.timezone import datetime, timedelta
         
@@ -40,7 +41,12 @@ class FeatureAccessMiddleware:
                 return Response(status=403, data=f"Feature limit reached for {feature.name} !")
             elif f is 'day-cap':
                 now = datetime.now()
-                today_instances = feature.feature_instance.filter(created_at__date=now.date()).count()
+                
+                today_instances = feature.feature_instance.filter(
+                    shop=shop, 
+                    created_at__date=now.date()
+                ).count()
+                
                 if today_instances >= v:
                     return Response(status=403, data=f"Feature limit reached for {feature.name} for today !")
             elif f is 'week-cap':
@@ -48,6 +54,7 @@ class FeatureAccessMiddleware:
                 start_of_week = now - timedelta(days=now.weekday())  # Get the start of the current week (Monday)
                 
                 week_instances = feature.feature_instance.filter(
+                    shop=shop,
                     created_at__date__gte=start_of_week.date(),
                     created_at__date__lte=now.date()
                 ).count()

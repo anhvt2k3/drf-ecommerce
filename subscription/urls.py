@@ -77,4 +77,29 @@ Limit - Progression Mapping:
         'Loyalty Program': {
             'access': 'unlimited'  # Full loyalty program access
         }
+        
+        
+        -- Feature recommend objects list
+[
+    {
+        'name': 'Flashsale',
+        'model_class': 'flashsale.Flashsale',
+        'path': ['flashsales']
+    },
+    {
+        'name': 'Promotion',
+        'model_class': 'promotion.Promotion',
+        'path': ['promotions']
+    },
+    {
+        'name': 'Notification',
+        'model_class': 'notification.Notification',
+        'path': ['notifications']
+    },
+    {
+        'name': 'Loyalty Program',
+        'model_class': None,
+        'path': ['benefits', 'coupons', 'pointgain', 'exchanges', 'quests', 'rankconfs']
+    }
+]
 """

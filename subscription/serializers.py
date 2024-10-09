@@ -6,7 +6,7 @@ from ..eco_sys import secrets
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
-from django.utils.timezone import datetime
+from django.utils.timezone import datetime, timedelta
 
 class TierSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
@@ -269,6 +269,27 @@ class ProgressSerializer(serializers.Serializer):
     
     def to_representation(self, instance):
         now = datetime.now()
+        feature = instance.feature
+        tierfeature = instance.subscription.tier.tierfeature_set.filter(feature=feature).first()
+        limit = tierfeature.limitation
+        
+        feature_progress = {}
+        feature_progress[feature.name] = {}
+        feature_progress[feature.name]['access'] = limit['access']
+        
+        feature_progress[feature.name]['day-usages'] = feature.feature_instance.filter(
+            shop=instance.subscription.user.shop,
+            created_at__date=now.date()
+        ).count()
+        feature_progress[feature.name]['day-cap'] = limit['day-cap']
+        
+        start_of_week = now - timedelta(days=now.weekday())  # Get the start of the current week (Monday)
+        feature_progress[feature.name]['week-usages'] = feature.feature_instance.filter(
+            shop=instance.subscription.user.shop,
+            created_at__date__gte=start_of_week.date(),
+            created_at__date__lte=now.date()
+        ).count()
+        feature_progress[feature.name]['week-cap'] = limit['week-cap']
         
         return {
             **SerializerUtils.representation_dict_formater(
@@ -278,5 +299,6 @@ class ProgressSerializer(serializers.Serializer):
             'subscription_id': instance.subscription.id,
             'subscription': instance.subscription.user.username,
             'feature_id': instance.feature.id,
-            'feature': instance.feature.name
+            'feature': instance.feature.name,
+            **feature_progress
     }
