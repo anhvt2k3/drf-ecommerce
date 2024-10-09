@@ -31,7 +31,7 @@ class FeatureAccessMiddleware:
             return None
         return Feature.objects.filter(path__in=[fpath]).first()
     
-    def limitNprogression_reconcile(self, feature_limits, progression, feature):
+    def limitNprogression_reconcile(self, feature_limits, progression, feature: Feature):
         # Check if the user has reached the limit for the feature
         from django.utils.timezone import datetime, timedelta
         
@@ -40,14 +40,14 @@ class FeatureAccessMiddleware:
                 return Response(status=403, data=f"Feature limit reached for {feature.name} !")
             elif f is 'day-cap':
                 now = datetime.now()
-                today_instances = feature.filter(created_at__date=now.date()).count()
+                today_instances = feature.feature_instance.filter(created_at__date=now.date()).count()
                 if today_instances >= v:
                     return Response(status=403, data=f"Feature limit reached for {feature.name} for today !")
             elif f is 'week-cap':
                 now = datetime.now()
                 start_of_week = now - timedelta(days=now.weekday())  # Get the start of the current week (Monday)
                 
-                week_instances = feature.filter(
+                week_instances = feature.feature_instance.filter(
                     created_at__date__gte=start_of_week.date(),
                     created_at__date__lte=now.date()
                 ).count()
@@ -64,18 +64,22 @@ class FeatureAccessMiddleware:
 [
     {
         'name': 'Flashsale',
+        'model_class': 'flashsale.Flashsale',
         'path': ['flashsales']
     },
     {
         'name': 'Promotion',
+        'model_class': 'promotion.Promotion',
         'path': ['promotions']
     },
     {
         'name': 'Notification',
+        'model_class': 'notification.Notification',
         'path': ['notifications']
     },
     {
         'name': 'Loyalty Program',
+        'model_class': None,
         'path': ['benefits', 'coupons', 'pointgain', 'exchanges', 'quests', 'rankconfs']
     }
 ]

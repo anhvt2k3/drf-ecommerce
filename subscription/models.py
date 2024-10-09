@@ -1,4 +1,5 @@
 from django.db import models
+from django.apps import apps
 from eco_sys.mixins import SoftDeleteModelMixin
 
 # Create your models here.
@@ -12,7 +13,12 @@ class Tier(SoftDeleteModelMixin, models.Model):
     
 class Feature(SoftDeleteModelMixin, models.Model):
     name = models.CharField(max_length=200)
+    model_class = models.CharField(max_length=200, default="") # Model class name
     path = models.JSONField(default=list)
+    
+    @property
+    def feature_instance(self):
+        return apps.get_model(self.model_class)
 
     description = models.TextField(default="A feature that is available for Subscription.")
     
