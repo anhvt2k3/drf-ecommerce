@@ -9,10 +9,10 @@ from .utils.utils import *
 
 
 # Create your views here.
-class ProgressionMerchantView(generics.GenericAPIView):
+class ProgressionMerchantView(generics.GenericAPIView): 
     serializer_class = ProgressSerializer
-    permission_classes = [IsMerchant]
     authentication_classes = [JWTAuthentication]
+    permission_classes = [IsMerchant]
     
     def get(self, request, *args, **kwargs):
         data = ViewUtils.paginated_get_response(
@@ -24,19 +24,10 @@ class ProgressionMerchantView(generics.GenericAPIView):
         
         return Response(data, data['status'])
     
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
-        else:
-            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
-        return Response(data, data['status'])
-    
 class SubscriptionMerchantView(generics.GenericAPIView):
     serializer_class = SubscriptionSerializer
-    permission_classes = [IsMerchant]
     authentication_classes = [JWTAuthentication]
+    permission_classes = [IsMerchant]
     
     def get(self, request, *args, **kwargs):
         data = ViewUtils.paginated_get_response(
@@ -52,15 +43,15 @@ class SubscriptionMerchantView(generics.GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
         return Response(data, data['status'])
 
 class FeatureAdminView(generics.GenericAPIView):
     serializer_class = FeatureSerializer
-    permission_classes = [IsAdminUser]
     authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAdminUser]
     
     def get(self, request, *args, **kwargs):
         if 'pk' in kwargs:
@@ -83,7 +74,7 @@ class FeatureAdminView(generics.GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
         return Response(data, data['status'])
@@ -114,7 +105,7 @@ class TierAdminView(generics.GenericAPIView):
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
         return Response(data, data['status'])
@@ -142,10 +133,11 @@ class TierFeatureAdminView(generics.GenericAPIView):
         return Response(data, data['status'])
     
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        items = request.data.get('items') if 'items' in request.data else [request.data]
+        serializer = self.serializer_class(data=items, many=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
         return Response(data, data['status'])
@@ -173,10 +165,11 @@ class PlanAdminView(generics.GenericAPIView):
         return Response(data, data['status'])
     
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        items = request.data.get('items') if 'items' in request.data else [request.data]
+        serializer = self.serializer_class(data=items, many=True)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
-            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Payment credentials have been stored successfully.", data=serializer.data)
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
         return Response(data, data['status'])

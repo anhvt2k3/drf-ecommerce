@@ -1,8 +1,8 @@
 import stripe
+from eco_sys import secrets
 
 from payment.models import Payment
 from user.models import User
-from ..eco_sys import secrets
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
@@ -10,7 +10,7 @@ from django.utils.timezone import datetime, timedelta
 
 class TierSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
-    level = serializers.IntegerField()
+    level = serializers.IntegerField(default=0, min_value=0)
 
     def create(self, validated_data):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
@@ -23,8 +23,6 @@ class TierSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         instance.name = validated_data.get('name', instance.name)
-        instance.price = validated_data.get('price', instance.price)
-        instance.period = validated_data.get('period', instance.period)
         instance.description = validated_data.get('description', instance.description)
         instance.save()
         return instance
@@ -32,7 +30,9 @@ class TierSerializer(serializers.Serializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.representation_dict_formater(
-                ['name', 'price', 'period'],
+                ['name', 'level',
+                    'stripeProductID'
+                ],
                 instance
             )
     }
@@ -41,15 +41,22 @@ class TierDetailSerializer(TierSerializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.detail_dict_formater(
-                ['name', 'price', 'period', 'stripeProductID'],
+                ['name', 'level', 'stripeProductID'],
                 instance
             )
     }
         
 class FeatureSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
+    model_class = serializers.CharField(max_length=200, required=False)
     path = serializers.ListField(child=serializers.CharField())
     
+    def validate_model_class(self, value):
+        if value:
+            if not apps.get_model(value):
+                raise serializers.ValidationError("Model class does not exist.")
+            return value
+
     def create(self, validated_data):
         return Feature.objects.create(**validated_data)
     
@@ -63,7 +70,10 @@ class FeatureSerializer(serializers.Serializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.representation_dict_formater(
-                ['name', 'path'],
+                [
+                    'name', 
+                    # 'path'
+                    ],
                 instance
             )
     }
@@ -124,6 +134,8 @@ class PlanSerializer(serializers.Serializer):
     def create(self, validated_data):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
         validated_data['stripePriceID'] = stripe.Price.create(**{
+            'currency': 'usd', 
+            'unit_amount': int(validated_data['price']*100),
             'product': validated_data['tier'].stripeProductID,
             'recurring': {"interval": "day", "interval_count": validated_data['interval'].days},
                                             }).id
@@ -197,19 +209,31 @@ class SubscriptionSerializer(serializers.Serializer):
         stripe.PaymentMethod.attach(decided_pm, customer=customerID)
         
         #* Create the subscription
-        validated_data['stripeSubscriptionID'] = stripe.Subscription.create(
+        stripeSubscription = stripe.Subscription.create(
             customer = customerID,
             items = [{
                 'price': validated_data['plan'].stripePriceID
             }],
             default_payment_method = decided_pm
-        ).id
+        )
+        validated_data['stripeSubscriptionID'] = stripeSubscription.id
         
         #* Fill in fields
         validated_data['tier'] = validated_data['plan'].tier
         validated_data['status'] = 'pending'
         validated_data['paystatus'] = 'pending'
-        return Subscription.objects.create(**validated_data)
+        subscription = Subscription.objects.create(**validated_data)
+        
+        #* Invoice creation
+        stripeInvoice = stripe.Invoice.retrieve(stripeSubscription.latest_invoice)
+        Invoice.objects.create(
+            payment=validated_data['paymethod'],
+            subscription=subscription,
+            status=stripeInvoice['status'],
+            receipt=stripeInvoice
+        )
+        
+        return subscription
     
     def update(self, instance, validated_data):
         instance.user = validated_data.get('user', instance.user)

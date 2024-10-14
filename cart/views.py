@@ -80,20 +80,12 @@ class CartItemUserView(generics.ListAPIView):
         cart, iscreated = Cart.objects.get_or_create(user=request.user)
         if not iscreated: cart.save()
         items = request.data.get('items') if 'items' in request.data else [request.data]
-        serializer_ = []
-        for item in items:
-            serializer = CartItemSerializer(data={ 'cart':cart.id,**item })
-            if not serializer.is_valid():
-                data = ViewUtils.gen_response(data=serializer.errors)
-                return Response(data, data['status'])
-            serializer_.append(serializer)
-        try:
-            [item.save() for item in serializer_]
-        except Exception as e:
-            data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='An error occurred while making changes.', data=str(e))
-            return Response(data, data['status'])
-        data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='CartItems created successfully.', data=f'CartItems created: {len(serializer_)}')
-        return Response(data=data, status=data['status'])
+        [item.update({ 'cart':cart.id }) for item in items]
+        serializer = CartItemSerializer(data=items, many=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message='CartItems created successfully.', data=serializer.data)
+            return Response(data, status=data['status'])
 
     def put(self, request, *args, **kwargs):
     #* data:

@@ -30,6 +30,8 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         except stripe.error.SignatureVerificationError as e:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Invalid signature.', data=str(e))
             return Response(data, data['status'])
+        
+        # todo: event of invoice creation
 
         # Handle the event
         if event['type'] == 'checkout.session.completed':

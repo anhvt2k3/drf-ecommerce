@@ -1,6 +1,4 @@
-from django.http import HttpResponseForbidden
 from requests import Response
-
 from subscription.models import Feature, TierFeature
 
 class FeatureAccessMiddleware:
@@ -9,8 +7,8 @@ class FeatureAccessMiddleware:
 
     def __call__(self, request):
         # Example of getting the user's tier and the feature they're accessing
-        tier = request.user.subscription.tier
         if not (feature := self.get_feature_from_request(request)): return self.get_response(request)
+        tier = request.user.subscription.tier
         feature_limits = TierFeature.objects.filter(tier=tier, feature=feature).values('limitation').first()
         progression = request.user.subscription.progress_set.filter(feature=feature).first().progression
         
@@ -39,7 +37,7 @@ class FeatureAccessMiddleware:
         for f, v in feature_limits.items():
             if progression.get(f, 0) >= v:
                 return Response(status=403, data=f"Feature limit reached for {feature.name} !")
-            elif f is 'day-cap':
+            elif f == 'day-cap':
                 now = datetime.now()
                 
                 today_instances = feature.feature_instance.filter(
@@ -49,7 +47,7 @@ class FeatureAccessMiddleware:
                 
                 if today_instances >= v:
                     return Response(status=403, data=f"Feature limit reached for {feature.name} for today !")
-            elif f is 'week-cap':
+            elif f == 'week-cap':
                 now = datetime.now()
                 start_of_week = now - timedelta(days=now.weekday())  # Get the start of the current week (Monday)
                 
