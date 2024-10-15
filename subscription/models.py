@@ -43,14 +43,14 @@ class Invoice(SoftDeleteModelMixin, models.Model):
     receipt = models.JSONField(default=dict)
 
 class Subscription(SoftDeleteModelMixin, models.Model):
-    user = models.ForeignKey('user.User', on_delete=models.CASCADE)
+    shop = models.ForeignKey('shop.Shop', on_delete=models.CASCADE)
     tier = models.ForeignKey(Tier, on_delete=models.CASCADE)
     plan = models.ForeignKey(Plan, on_delete=models.CASCADE)
     status = models.CharField(max_length=200)
     paystatus = models.CharField(max_length=200)
     start_date = models.DateTimeField(null=True, blank=True)
     expire_date = models.DateTimeField(null=True, blank=True)
-    stripeSubscriptionID = models.CharField(max_length=200)
+    stripeSubscriptionID = models.CharField(max_length=200, null=True, blank=True)
 
     description = models.TextField(default="A Subscription that is created by User to attain Tier benefits.")
     

@@ -34,13 +34,15 @@ class SubscriptionMerchantView(generics.GenericAPIView):
                     self,
                     request,
                     self.serializer_class,
-                    Subscription.objects.filter(user=request.user)                                                 
+                    Subscription.objects.filter(shop__merchant=request.user)                                                 
                 )
         
         return Response(data, data['status'])
     
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+                #! supposed that each user has 1 shop
+                data={'shop':request.user.shop_set.first() ,**request.data})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
@@ -59,7 +61,7 @@ class FeatureAdminView(generics.GenericAPIView):
                     self,
                     request,
                     FeatureDetailSerializer,
-                    Feature.objects.get(id=kwargs['pk'])
+                    Feature.objects.filter(id=kwargs['pk'])
                 )
         else:
             data = ViewUtils.paginated_get_response(
@@ -90,7 +92,7 @@ class TierAdminView(generics.GenericAPIView):
                     self,
                     request,
                     TierDetailSerializer,
-                    Tier.objects.get(id=kwargs['pk'])
+                    Tier.objects.filter(id=kwargs['pk'])
                 )
         else:
             data = ViewUtils.paginated_get_response(
@@ -121,7 +123,7 @@ class TierFeatureAdminView(generics.GenericAPIView):
                     self,
                     request,
                     TierFeatureDetailSerializer,
-                    TierFeature.objects.get(id=kwargs['pk'])
+                    TierFeature.objects.filter(id=kwargs['pk'])
                 )
         else:
             data = ViewUtils.paginated_get_response(
@@ -153,7 +155,7 @@ class PlanAdminView(generics.GenericAPIView):
                     self,
                     request,
                     PlanDetailSerializer,
-                    Plan.objects.get(id=kwargs['pk'])
+                    Plan.objects.filter(id=kwargs['pk'])
                 )
         else:
             data = ViewUtils.paginated_get_response(

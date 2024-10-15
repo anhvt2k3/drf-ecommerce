@@ -1,4 +1,5 @@
 from user.models import User
+from user.serializers import UserDetailSerializer
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
@@ -27,6 +28,15 @@ class PaymentSerializer(serializers.Serializer):
             'id': instance.id,
             'user_id': instance.user.id,
             'user': instance.user.username,
+            'type': instance.type,
+            'brand': instance.method_object.get(instance.type).get('brand'),
+        }
+        
+class PaymentDetailSerializer(PaymentSerializer):
+    def to_representation(self, instance):
+        return {
+            'id': instance.id,
+            'user': UserDetailSerializer(instance.user).data,
             'type': instance.type,
             'brand': instance.method_object.get(instance.type).get('brand'),
         }

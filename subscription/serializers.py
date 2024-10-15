@@ -2,7 +2,9 @@ import stripe
 from eco_sys import secrets
 
 from payment.models import Payment
-from user.models import User
+from payment.serializers import PaymentDetailSerializer
+from shop.models import Shop
+from shop.serializers import ShopDetailSerializer
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
@@ -133,11 +135,13 @@ class PlanSerializer(serializers.Serializer):
     
     def create(self, validated_data):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
+        unit_amount = int(validated_data['price']*100)
         validated_data['stripePriceID'] = stripe.Price.create(**{
             'currency': 'usd', 
-            'unit_amount': int(validated_data['price']*100),
+            'unit_amount': unit_amount,
             'product': validated_data['tier'].stripeProductID,
-            'recurring': {"interval": "day", "interval_count": validated_data['interval'].days},
+            'recurring': {"interval": "day", 
+                            "interval_count": validated_data['interval'].days},
                                             }).id
         return Plan.objects.create(**validated_data)
     
@@ -153,9 +157,10 @@ class PlanSerializer(serializers.Serializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.representation_dict_formater(
-                ['name', 'interval', 'price', 'charge'],
+                ['name', 'price'],
                 instance
             ),
+            'inverval': f'{instance.interval.days} days',
             'tier_id': instance.tier.id,
             'tier': instance.tier.name
     }
@@ -164,15 +169,16 @@ class PlanDetailSerializer(PlanSerializer):
     def to_representation(self, instance):
         return {
             **SerializerUtils.detail_dict_formater(
-                ['name', 'interval', 'price', 'charge', 'stripePriceID'],
+                ['name', 'price', 'stripePriceID'],
                 instance
             ),
+            'inverval': f'{instance.interval.days} days',
             'tier_id': instance.tier.id,
             'tier': instance.tier.name
     }
 
 class SubscriptionSerializer(serializers.Serializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    shop = serializers.PrimaryKeyRelatedField(queryset=Shop.objects.all())
     # tier = serializers.PrimaryKeyRelatedField(queryset=Tier.objects.all())
     plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all())
     paymethod = serializers.PrimaryKeyRelatedField(queryset=Payment.objects.all(), required=False)
@@ -183,40 +189,33 @@ class SubscriptionSerializer(serializers.Serializer):
     
     def validate_paymethod(self, value):
         if value:
-            if value.user != self.user:
+            if value.shop.merchant != self.shop.merchant:
                 raise serializers.ValidationError("Payment method does not belong to user.")
             return value
         else:
-            return Payment.objects.filter(user=self.user).first()
+            return Payment.objects.filter(user=self.shop.merchant).first()
     
     def create(self, validated_data :dict):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
         
+        merchant = validated_data['shop'].merchant
         #* Decide the payment method
-        decided_pm = validated_data.get('paymethod', Payment.objects.filter(user=validated_data['user']).first().method_object['id'])
+        pm_object = Payment.objects.filter(user=merchant).first()
+        decided_pm = validated_data.get('paymethod', pm_object.method_object['id'])
         
         #* Create the customer if user does not have one
-        #! This is the only place where a Customer is created
-        if not validated_data['user'].stripeCustomerID:
-            customerID = validated_data['user'].stripeCustomerID = stripe.Customer.create(
-                email=validated_data['user'].email
-        ).id
-            validated_data['user'].save()
+        #! Only place where a stripeCustomer is created
+        if not merchant.stripeCustomerID:
+            customerID = merchant.stripeCustomerID = stripe.Customer.create(
+                email=merchant.email
+            ).id
+            merchant.save()
         else: 
-            customerID = validated_data['user'].stripeCustomerID
+            customerID = merchant.stripeCustomerID
         
         #* Attach the payment method
         stripe.PaymentMethod.attach(decided_pm, customer=customerID)
         
-        #* Create the subscription
-        stripeSubscription = stripe.Subscription.create(
-            customer = customerID,
-            items = [{
-                'price': validated_data['plan'].stripePriceID
-            }],
-            default_payment_method = decided_pm
-        )
-        validated_data['stripeSubscriptionID'] = stripeSubscription.id
         
         #* Fill in fields
         validated_data['tier'] = validated_data['plan'].tier
@@ -224,25 +223,29 @@ class SubscriptionSerializer(serializers.Serializer):
         validated_data['paystatus'] = 'pending'
         subscription = Subscription.objects.create(**validated_data)
         
-        #* Invoice creation
-        stripeInvoice = stripe.Invoice.retrieve(stripeSubscription.latest_invoice)
-        Invoice.objects.create(
-            payment=validated_data['paymethod'],
-            subscription=subscription,
-            status=stripeInvoice['status'],
-            receipt=stripeInvoice
+        #* Create the subscription
+        stripe.Subscription.create(
+            customer = customerID,
+            items = [{
+                'price': validated_data['plan'].stripePriceID
+            }],
+            default_payment_method = decided_pm,
+            metadata={
+                'paymethod' : pm_object.id,
+                'subscription' : subscription.id
+            }
         )
         
         return subscription
     
     def update(self, instance, validated_data):
-        instance.user = validated_data.get('user', instance.user)
         instance.tier = validated_data.get('tier', instance.tier)
         instance.plan = validated_data.get('plan', instance.plan)
         instance.status = validated_data.get('status', instance.status)
         instance.paystatus = validated_data.get('paystatus', instance.paystatus)
         instance.start_date = validated_data.get('start_date', instance.start_date)
         instance.expire_date = validated_data.get('expire_date', instance.expire_date)
+        instance.stripeSubscriptionID = validated_data.get('stripeSubscriptionID', instance.stripeSubscriptionID)
         instance.save()
         return instance
     
@@ -252,8 +255,10 @@ class SubscriptionSerializer(serializers.Serializer):
                 ['status', 'paystatus', 'start_date', 'expire_date'],
                 instance
             ),
-            'user_id': instance.user.id,
-            'user': instance.user.username,
+            'shop_id': instance.shop.id,
+            'shop': instance.shop.name,
+            'owner': instance.shop.merchant.username,
+            'owner_id': instance.shop.merchant.id,
             'tier_id': instance.tier.id,
             'tier': instance.tier.name,
             'plan_id': instance.plan.id,
@@ -268,7 +273,7 @@ class SubscriptionDetailSerializer(SubscriptionSerializer):
                 ['status', 'paystatus', 'start_date', 'expire_date', 'stripeSubscriptionID'],
                 instance
             ),
-            'user': UserDetailSerializer(instance.user).data,
+            'shop': ShopDetailSerializer(instance.shop).data,
             'tier': TierDetailSerializer(instance.tier).data,
             'plan': PlanDetailSerializer(instance.plan).data,
             'progress': ProgressSerializer(instance.progress_set, many=True).data
@@ -325,4 +330,43 @@ class ProgressSerializer(serializers.Serializer):
             'feature_id': instance.feature.id,
             'feature': instance.feature.name,
             **feature_progress
+    }
+        
+class InvoiceSerializer(serializers.Serializer):
+    payment = serializers.PrimaryKeyRelatedField(queryset=Payment.objects.all())
+    subscription = serializers.PrimaryKeyRelatedField(queryset=Subscription.objects.all())
+    status = serializers.CharField(max_length=200)
+    receipt = serializers.JSONField()
+    
+    def create(self, validated_data):
+        return Invoice.objects.create(**validated_data)
+    
+    def update(self, instance, validated_data):
+        instance.payment = validated_data.get('payment', instance.payment)
+        instance.subscription = validated_data.get('subscription', instance.subscription)
+        instance.status = validated_data.get('status', instance.status)
+        instance.receipt = validated_data.get('receipt', instance.receipt)
+        instance.save()
+        return instance
+    
+    def to_representation(self, instance):
+        return {
+            **SerializerUtils.representation_dict_formater(
+                ['status'],
+                instance
+            ),
+            'payment_id': instance.payment.id,
+            'payment_stripe_id': instance.payment.method_object['id'],
+            'subscription_id': instance.subscription.id,
+    }
+        
+class InvoiceDetailSerializer(InvoiceSerializer):
+    def to_representation(self, instance):
+        return {
+            **SerializerUtils.detail_dict_formater(
+                ['status', 'receipt'],
+                instance
+            ),
+            'payment': PaymentDetailSerializer(instance.payment).data,
+            'subscription': SubscriptionDetailSerializer(instance.subscription).data
     }

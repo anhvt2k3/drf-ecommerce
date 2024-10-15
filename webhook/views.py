@@ -1,5 +1,8 @@
 from rest_framework import generics
 from rest_framework.response import Response
+
+from subscription.models import Invoice, Subscription
+from subscription.serializers import InvoiceSerializer
 from .utils.utils import *
 from eco_sys.secrets import STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
 
@@ -31,24 +34,59 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message='Invalid signature.', data=str(e))
             return Response(data, data['status'])
         
-        # todo: event of invoice creation
 
         # Handle the event
         if event['type'] == 'checkout.session.completed':
-            session = event['data']['object']
-            return self.handle_successful_payment(session)
+            return self.handle_successful_payment(event)
 
         elif event['type'] == 'payment_intent.payment_failed':
-            payment_intent = event['data']['object']
-            return self.handle_failed_payment(payment_intent)
+            return self.handle_failed_payment(event)
+        
+        elif event['type'] == 'customer.created':
+            pass
+        
+        elif event['type'] == 'invoice.created':
+            return self.handle_invoice_creation(event)
+        
+        elif event['type'] == 'customer.subscription.created':
+            return self.handle_subscription_creation(event)
+        
+        # todo: event of invoice creation
         
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invalid event type.', data=event['type'])
         return Response(data, status=data['status'])
 
-    def handle_successful_payment(session):
+    def handle_subscription_creation(event):
+        # print ('SUBSCRIPTION UPDATE')
+        stripeSubscription = event['data']['object']
+        subscriptionMetadata = stripeSubscription['metadata']
+        localSubscription = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
+        localSubscription.stripeSubscriptionID = stripeSubscription['id']
+        localSubscription.save()
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Subscription creation acknowledged.', data=stripeSubscription)
+        return Response(data, status=data['status'])
+
+    def handle_invoice_creation(event):
+        # print ('INVOICE UPDATE')
+        stripeInvoice = event['data']['object']
+        subscriptionMetadata = stripe.Subscription.retrieve(stripeInvoice['subscription'])['metadata']
+        serializer = InvoiceSerializer(
+            payment= subscriptionMetadata['paymethod'],
+            subscription= subscriptionMetadata['subscription'],
+            status= stripeInvoice['status'],
+            receipt= stripeInvoice
+        )
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invoice creation acknowledged.', data=stripeInvoice)
+        return Response(data, status=data['status'])
+    
+    def handle_successful_payment(event):
         """
         Handle the successful payment logic here.
         """
+        # print ('PAYMENT UPDATE')
+        session = event['data']['object']
         session = session['data']['object']  # Checkout Session object
         order_id = session['metadata']['order_id']
         OrderSerializer().update(Order.objects.filter(id=order_id).first(), {'status':'processing'})
@@ -56,10 +94,12 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         return Response(data, status=data['status'])
             
 
-    def handle_failed_payment(payment_intent):
+    def handle_failed_payment(event):
         """
         Handle the failed payment logic here.
         """
+        # print ('PAYMENT UPDATE')
+        payment_intent = event['data']['object']
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment failed. Forget something in your purchase?', data=payment_intent)
         return Response(data, status=data['status'])
             

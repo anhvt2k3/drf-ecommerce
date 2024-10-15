@@ -5,9 +5,13 @@ urlpatterns = [
     path("subscriptions/my/", SubscriptionMerchantView.as_view()),
     path("progressions/my/", ProgressionMerchantView.as_view()),
     path("features/", FeatureAdminView.as_view()),
+    path("features/<int:pk>/", FeatureAdminView.as_view()),
     path("tierfeatures/", TierFeatureAdminView.as_view()),
+    path("tierfeatures/<int:pk>/", TierFeatureAdminView.as_view()),
     path("tiers/", TierAdminView.as_view()),
+    path("tiers/<int:pk>/", TierAdminView.as_view()),
     path("plans/", PlanAdminView.as_view()),
+    path("plans/<int:pk>/", PlanAdminView.as_view()),
 ] 
 
 """ 
@@ -113,19 +117,19 @@ Limit Design Dictionary:
     {
         "tier": 1,
         "name": "1 Month Basic",
-        "interval": 30,
+        "interval": "30 days",
         "price": 10
     },
     {
         "tier": 2,
         "name": "1 Month Personal",
-        "interval": 30,
+        "interval": "30 days",
         "price": 15
     },
     {
         "tier": 3,
         "name": "1 Month Business",
-        "interval": 30,
+        "interval": "30 days",
         "price": 30
     }
 ]
