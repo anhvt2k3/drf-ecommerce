@@ -193,29 +193,35 @@ class SubscriptionSerializer(serializers.Serializer):
                 raise serializers.ValidationError("Payment method does not belong to user.")
             return value
         else:
-            return Payment.objects.filter(user=self.shop.merchant).first()
+            if not (pm := Payment.objects.filter(user=self.shop.merchant)):
+                raise serializers.ValidationError("User does not have a payment method.")
+            return pm.first()
     
     def create(self, validated_data :dict):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
         
         merchant = validated_data['shop'].merchant
         #* Decide the payment method
-        pm_object = Payment.objects.filter(user=merchant).first()
-        decided_pm = validated_data.get('paymethod', pm_object.method_object['id'])
+        local_pm = validated_data.get('paymethod', Payment.objects.filter(user=merchant).first())
+        decided_pm = local_pm.method_object['id']
         
         #* Create the customer if user does not have one
-        #! Only place where a stripeCustomer is created
+        #! Only place where a stripeCustomer is created (an alternative is within Payment Method creation)
         if not merchant.stripeCustomerID:
             customerID = merchant.stripeCustomerID = stripe.Customer.create(
-                email=merchant.email
+                email=merchant.email,
+                metadata={'user': merchant.id}
             ).id
             merchant.save()
         else: 
             customerID = merchant.stripeCustomerID
         
         #* Attach the payment method
-        stripe.PaymentMethod.attach(decided_pm, customer=customerID)
-        
+        pm = stripe.PaymentMethod.attach(decided_pm, customer=customerID)
+        #! reducable if Payment Method creation is with a real stripe object
+        local_pm.method_object = pm.__dict__
+        local_pm.save()
+        pm_id = pm.id
         
         #* Fill in fields
         validated_data['tier'] = validated_data['plan'].tier
@@ -224,15 +230,15 @@ class SubscriptionSerializer(serializers.Serializer):
         subscription = Subscription.objects.create(**validated_data)
         
         #* Create the subscription
-        #: can be left to webhook
+        #! handlable by webhook
         subscription.stripeSubscriptionID = stripe.Subscription.create(
             customer = customerID,
             items = [{
                 'price': validated_data['plan'].stripePriceID
             }],
-            default_payment_method = decided_pm,
+            default_payment_method = pm_id,
             metadata={
-                'paymethod' : pm_object.id,
+                'paymethod' : local_pm.id,
                 'subscription' : subscription.id
             }
         ).id

@@ -1,6 +1,7 @@
 from eco_sys.utils.utils import ViewUtils
 from rank.serializers import RankConfigSerializer, RankSerializer
 from .utils import *
+from eco_sys import secrets
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -22,7 +23,6 @@ from order.models import *
 from order.serializers import * 
 from quest.models import *
 from quest.serializers import *
-from django.db.models import Count
 from order.tasks import *
 from rank.models import *
 from rank.serializers import *
@@ -33,12 +33,15 @@ class DebugView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         data = {}
-        user = User.objects.filter(id=request.data['user']).first()
-        order = Order.objects.filter(id=request.data['order']).first()
-        shop = order.orderitem_set.all()[0].product.shop
-        buyer = user.buyer_set.filter(shop=shop.id).first()
+        stripe.api_key = secrets.STRIPE_SECRET_KEY
         
-        apply_benefit(273)
+        user = User.objects.filter(id=2).first()
+        data = stripe.Customer.modify(
+            user.stripeCustomerID,
+            metadata={'user_id': user.id}
+        )
+        
+        return Response(data, status=HTTP_200_OK)
         #! test detail Serializer
         # from eco_sys.utils.utils import ViewUtils
         # data = ViewUtils.generic_detail_paginated_response(
