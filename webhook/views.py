@@ -51,8 +51,6 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         elif event['type'] == 'customer.subscription.created':
             return self.handle_subscription_creation(event)
         
-        # todo: event of invoice creation
-        
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invalid event type.', data=event['type'])
         return Response(data, status=data['status'])
 
@@ -61,8 +59,9 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         stripeSubscription = event['data']['object']
         subscriptionMetadata = stripeSubscription['metadata']
         localSubscription = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
-        localSubscription.stripeSubscriptionID = stripeSubscription['id']
-        localSubscription.save()
+        if not localSubscription.stripeSubscriptionID:
+            localSubscription.stripeSubscriptionID = stripeSubscription['id']
+            localSubscription.save()
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Subscription creation acknowledged.', data=stripeSubscription)
         return Response(data, status=data['status'])
 
@@ -70,14 +69,15 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         # print ('INVOICE UPDATE')
         stripeInvoice = event['data']['object']
         subscriptionMetadata = stripe.Subscription.retrieve(stripeInvoice['subscription'])['metadata']
-        serializer = InvoiceSerializer(
-            payment= subscriptionMetadata['paymethod'],
-            subscription= subscriptionMetadata['subscription'],
-            status= stripeInvoice['status'],
-            receipt= stripeInvoice
-        )
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
+        if not Subscription.objects.filter(receipt__id=stripeInvoice['id']).exists():
+            serializer = InvoiceSerializer(
+                payment= subscriptionMetadata['paymethod'],
+                subscription= subscriptionMetadata['subscription'],
+                status= stripeInvoice['status'],
+                receipt= stripeInvoice
+            )
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invoice creation acknowledged.', data=stripeInvoice)
         return Response(data, status=data['status'])
     
@@ -85,6 +85,7 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         """
         Handle the successful payment logic here.
         """
+        #: implement duplicate event check
         # print ('PAYMENT UPDATE')
         session = event['data']['object']
         session = session['data']['object']  # Checkout Session object
@@ -98,6 +99,7 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         """
         Handle the failed payment logic here.
         """
+        #: implement duplicate event check
         # print ('PAYMENT UPDATE')
         payment_intent = event['data']['object']
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Payment failed. Forget something in your purchase?', data=payment_intent)

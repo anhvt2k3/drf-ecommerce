@@ -224,7 +224,8 @@ class SubscriptionSerializer(serializers.Serializer):
         subscription = Subscription.objects.create(**validated_data)
         
         #* Create the subscription
-        stripe.Subscription.create(
+        #: can be left to webhook
+        subscription.stripeSubscriptionID = stripe.Subscription.create(
             customer = customerID,
             items = [{
                 'price': validated_data['plan'].stripePriceID
@@ -234,7 +235,8 @@ class SubscriptionSerializer(serializers.Serializer):
                 'paymethod' : pm_object.id,
                 'subscription' : subscription.id
             }
-        )
+        ).id
+        subscription.save()
         
         return subscription
     
