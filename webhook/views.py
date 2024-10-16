@@ -50,7 +50,22 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         elif event.type == 'customer.subscription.created':
             return self.handle_subscription_creation(event.data.object)
         
+        elif event.type == 'customer.subscription.deleted':
+            return self.handle_subscription_deletion(event.data.object)
+            
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invalid event type.', data=event['type'])
+        return Response(data, status=data['status'])
+
+    def handle_subscription_deletion(self, event):
+        # print ('SUBSCRIPTION UPDATE')
+        stripeSubscription = event
+        subscriptionMetadata = stripeSubscription['metadata']
+        localSubscription = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
+        if localSubscription:
+            localSubscription.status = 'cancelled'
+            localSubscription.stripeSubscriptionID = None
+            localSubscription.save()
+        data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Subscription deletion acknowledged.', data=stripeSubscription)
         return Response(data, status=data['status'])
 
     def handle_subscription_creation(self, event):
@@ -58,7 +73,8 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         stripeSubscription = event
         subscriptionMetadata = stripeSubscription['metadata']
         localSubscription = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
-        if not localSubscription.stripeSubscriptionID:
+        if localSubscription:
+            localSubscription.status = 'active'
             localSubscription.stripeSubscriptionID = stripeSubscription['id']
             localSubscription.save()
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Subscription creation acknowledged.', data=stripeSubscription)
@@ -69,7 +85,7 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         #: branch condition -> update subscription pay status
         stripeInvoice = event
         subscriptionMetadata = stripe.Subscription.retrieve(stripeInvoice['subscription'])['metadata']
-        if not Subscription.objects.filter(receipt__id=stripeInvoice['id']).exists():
+        if not Invoice.objects.filter(receipt__id=stripeInvoice['id']).exists():
             serializer = InvoiceSerializer(
                 payment= subscriptionMetadata['paymethod'],
                 subscription= subscriptionMetadata['subscription'],
@@ -78,6 +94,13 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
             )
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
+            subs = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
+            subs.paystatus = stripeInvoice['status']
+            #: datetime field conversion
+            subs.start_date = stripeInvoice['created']
+            subs.expire_date = stripeInvoice['due_date']
+            subs.save()
+            
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invoice creation acknowledged.', data=stripeInvoice)
         return Response(data, status=data['status'])
     

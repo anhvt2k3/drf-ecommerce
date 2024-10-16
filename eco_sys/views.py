@@ -28,6 +28,8 @@ from rank.models import *
 from rank.serializers import *
 from exchange.models import *
 from exchange.serializers import *
+from subscription.models import *
+from subscription.serializers import *
 
 class DebugView(generics.GenericAPIView):
     
@@ -35,13 +37,9 @@ class DebugView(generics.GenericAPIView):
         data = {}
         stripe.api_key = secrets.STRIPE_SECRET_KEY
         
-        user = User.objects.filter(id=2).first()
-        data = stripe.Customer.modify(
-            user.stripeCustomerID,
-            metadata={'user_id': user.id}
-        )
+        sub = Subscription.objects.filter(id=3).first()
+        data = stripe.Subscription.cancel(sub.stripeSubscriptionID)
         
-        return Response(data, status=HTTP_200_OK)
         #! test detail Serializer
         # from eco_sys.utils.utils import ViewUtils
         # data = ViewUtils.generic_detail_paginated_response(
@@ -224,5 +222,4 @@ class DebugView(generics.GenericAPIView):
         #             }
         #                 for item in ordered_orderitems]
         # }
-        # return Response(content, status=HTTP_200_OK)
         

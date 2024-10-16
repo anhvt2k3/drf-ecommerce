@@ -130,7 +130,7 @@ class TierFeatureDetailSerializer(TierFeatureSerializer):
 class PlanSerializer(serializers.Serializer):
     tier = serializers.PrimaryKeyRelatedField(queryset=Tier.objects.all())
     name = serializers.CharField(max_length=200)
-    interval = serializers.DurationField() # must be in days
+    interval = serializers.DurationField() #! must be in days
     price = serializers.FloatField()
     
     def create(self, validated_data):

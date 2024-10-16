@@ -8,14 +8,16 @@ class FeatureAccessMiddleware:
     def __call__(self, request):
         # Example of getting the user's tier and the feature they're accessing
         if not (feature := self.get_feature_from_request(request)): return self.get_response(request)
-        tier = request.user.subscription.tier
+        if not (shop := request.user.shop_set.first()): return Response(status=403, data="User must have a Shop for this feature !")
+        if not (cur_subscription := shop.subscription_set.filter(status='active').first()): return Response(status=403, data="No active subscription found for this shop !")
+        tier = cur_subscription.tier
         feature_limits = TierFeature.objects.filter(tier=tier, feature=feature).values('limitation').first()
-        progression = request.user.subscription.progress_set.filter(feature=feature).first().progression
+        progression = cur_subscription.progress_set.filter(feature=feature).first().progression
         
         if not (forbidResponse := self.limitNprogression_reconcile(
                                     feature_limits=feature_limits,
                                     progression=progression,
-                                    shop=request.user.shop,
+                                    shop=shop,
                                     feature=feature
                                         )):
             return forbidResponse

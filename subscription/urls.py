@@ -127,6 +127,12 @@ Limit Design Dictionary:
         "price": 15
     },
     {
+        "tier": 1,
+        "name": "Super Quick Testing",
+        "interval": "2 minutes",
+        "price": 0.01
+    },
+    {
         "tier": 3,
         "name": "1 Month Business",
         "interval": "30 days",
