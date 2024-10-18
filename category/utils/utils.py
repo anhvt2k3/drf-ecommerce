@@ -10,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from product.serializers import ProductSerializer
 from django.db.models import F, Q
+from django.utils import timezone
 import datetime
 
 def convert_unix_to_iso8601(unix_timestamp):

@@ -1,4 +1,5 @@
 import stripe
+import stripe.util
 from eco_sys import secrets
 
 from payment.models import Payment
@@ -196,6 +197,11 @@ class SubscriptionSerializer(serializers.Serializer):
             if not (pm := Payment.objects.filter(user=self.shop.merchant)):
                 raise serializers.ValidationError("User does not have a payment method.")
             return pm.first()
+        
+    def validate(self, attrs):
+        if Subscription.objects.filter(shop=attrs['shop'], status='active').exists():
+            raise serializers.ValidationError("User already has an active subscription.")
+        return attrs
     
     def create(self, validated_data :dict):
         stripe.api_key = secrets.STRIPE_SECRET_KEY
@@ -217,11 +223,10 @@ class SubscriptionSerializer(serializers.Serializer):
             customerID = merchant.stripeCustomerID
         
         #* Attach the payment method
-        pm = stripe.PaymentMethod.attach(decided_pm, customer=customerID)
+        pm = stripe.PaymentMethod.attach(payment_method=decided_pm, customer=customerID)
         #! reducable if Payment Method creation is with a real stripe object
-        local_pm.method_object = pm.__dict__
+        local_pm.method_object = stripe.util.convert_to_dict(pm)
         local_pm.save()
-        pm_id = pm.id
         
         #* Fill in fields
         validated_data['tier'] = validated_data['plan'].tier
@@ -236,13 +241,23 @@ class SubscriptionSerializer(serializers.Serializer):
             items = [{
                 'price': validated_data['plan'].stripePriceID
             }],
-            default_payment_method = pm_id,
+            default_payment_method = pm.id,
             metadata={
                 'paymethod' : local_pm.id,
                 'subscription' : subscription.id
             }
         ).id
         subscription.save()
+        
+        #* Create the progression
+        #: can be brought into webhook
+        for tf in TierFeature.objects.filter(tier=subscription.tier):
+            Progress.objects.create(
+                subscription=subscription,
+                feature=tf.feature,
+                isActivated=True,
+                progression={}
+            )
         
         return subscription
     

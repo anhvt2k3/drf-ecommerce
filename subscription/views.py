@@ -66,7 +66,7 @@ class SubscriptionMerchantView(generics.GenericAPIView):
     def post(self, request):
         serializer = self.serializer_class(
                 #! supposed that each user has 1 shop
-                data={'shop':request.user.shop_set.first() ,**request.data})
+                data={'shop':request.user.shop_set.first().id ,**request.data})
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)

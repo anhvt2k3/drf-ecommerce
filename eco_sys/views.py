@@ -37,8 +37,15 @@ class DebugView(generics.GenericAPIView):
         data = {}
         stripe.api_key = secrets.STRIPE_SECRET_KEY
         
-        sub = Subscription.objects.filter(id=3).first()
-        data = stripe.Subscription.cancel(sub.stripeSubscriptionID)
+        subscription = Subscription.objects.filter(id=4).first()
+        for tf in TierFeature.objects.filter(tier=subscription.tier):
+            prog = Progress.objects.create(
+                subscription=subscription,
+                feature=tf.feature,
+                isActivated=True,
+                progression={}
+            )
+            data[prog.feature.name] = prog.id
         
         #! test detail Serializer
         # from eco_sys.utils.utils import ViewUtils

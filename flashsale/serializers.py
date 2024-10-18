@@ -110,6 +110,7 @@ class FlashsaleProductSerializer(serializers.Serializer):
     
     def to_representation(self, instance):
         return {
+            'product': instance.product.id,
             **SerializerUtils.representation_dict_formater(
                 input_fields=['stock', 'sale_price', 'sale_limit'],
                 instance=instance),
@@ -118,6 +119,7 @@ class FlashsaleProductSerializer(serializers.Serializer):
 class FlashsaleProductDetailSerializer(FlashsaleProductSerializer):
     def to_representation(self, instance):
         return {
+            'product': instance.product.id,
             **SerializerUtils.detail_dict_formater(
                 input_fields=['stock', 'sale_price', 'sale_limit'],
                 instance=instance),

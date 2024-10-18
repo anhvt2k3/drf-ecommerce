@@ -14,6 +14,7 @@ from product.models import Product
 from .tasks import loyalty_logics,apply_benefit
 import threading
 
+from django.utils import timezone
 import datetime
 
 def convert_unix_to_iso8601(unix_timestamp):
