@@ -230,7 +230,7 @@ class SubscriptionSerializer(serializers.Serializer):
         subscription = Subscription.objects.create(**validated_data)
         
         #* Create the subscription
-        #! handlable by webhook
+        #: handlable by webhook (async this part)
         subscription.stripeSubscriptionID = stripe.Subscription.create(
             customer = customerID,
             items = [{

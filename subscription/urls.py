@@ -4,6 +4,9 @@ from .views import *
 urlpatterns = [
     path("subscriptions/my/", SubscriptionMerchantView.as_view()),
     path("progressions/my/", ProgressionMerchantView.as_view()),
+    path("plans/my/", PlanMerchantView.as_view()),
+    path("invoices/my/", InvoiceMerchantView.as_view()),
+    
     path("features/", FeatureAdminView.as_view()),
     path("features/<int:pk>/", FeatureAdminView.as_view()),
     path("tierfeatures/", TierFeatureAdminView.as_view()),

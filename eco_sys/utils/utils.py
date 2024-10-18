@@ -10,6 +10,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from product.serializers import ProductSerializer
 from django.db.models import F, Q
+import datetime
+
+def convert_unix_to_iso8601(unix_timestamp):
+    # Convert Unix timestamp to UTC datetime
+    utc_time = datetime.datetime.fromtimestamp(unix_timestamp)
+    # Format datetime object to ISO 8601 format
+    iso_format_time = utc_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return iso_format_time
 ### VIEWS UTILS ###
 
 class ViewUtils:

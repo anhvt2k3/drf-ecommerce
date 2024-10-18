@@ -44,6 +44,9 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         elif event.type == 'customer.created':
             pass
         
+        elif event.type == 'invoice.paid':
+            return self.handle_invoice_paid(event.data.object)
+        
         elif event.type == 'invoice.created':
             return self.handle_invoice_creation(event.data.object)
         
@@ -80,11 +83,10 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Subscription creation acknowledged.', data=stripeSubscription)
         return Response(data, status=data['status'])
 
-    def handle_invoice_creation(self, event):
+    def handle_invoice_paid(self, event):
         # print ('INVOICE UPDATE')
-        #: branch condition -> update subscription pay status
         stripeInvoice = event
-        subscriptionMetadata = stripe.Subscription.retrieve(stripeInvoice['subscription'])['metadata']
+        subscriptionMetadata = stripeInvoice['subscription_details']['metadata']
         if not Invoice.objects.filter(receipt__id=stripeInvoice['id']).exists():
             serializer = InvoiceSerializer(
                 payment= subscriptionMetadata['paymethod'],
@@ -96,9 +98,25 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
                 serializer.save()
             subs = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
             subs.paystatus = stripeInvoice['status']
-            #: datetime field conversion
-            subs.start_date = stripeInvoice['created']
-            subs.expire_date = stripeInvoice['due_date']
+            subs.start_date = datetime.datetime.fromtimestamp(stripeInvoice['lines']['data'][0]['period']['start'])
+            subs.expire_date = datetime.datetime.fromtimestamp(stripeInvoice['lines']['data'][0]['period']['end'])
+            subs.save()
+            
+    def handle_invoice_creation(self, event):
+        # print ('INVOICE UPDATE')
+        stripeInvoice = event
+        subscriptionMetadata = stripeInvoice['subscription_details']['metadata']
+        if not Invoice.objects.filter(receipt__id=stripeInvoice['id']).exists():
+            serializer = InvoiceSerializer(
+                payment= subscriptionMetadata['paymethod'],
+                subscription= subscriptionMetadata['subscription'],
+                status= stripeInvoice['status'],
+                receipt= stripeInvoice
+            )
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+            subs = Subscription.objects.filter(id=subscriptionMetadata['subscription']).first()
+            subs.paystatus = 'invoiced'
             subs.save()
             
         data = ViewUtils.gen_response(success=True, status=HTTP_200_OK, message='Invoice creation acknowledged.', data=stripeInvoice)
