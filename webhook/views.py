@@ -47,11 +47,17 @@ class PaymentStripeWebhookView(generics.GenericAPIView):
         elif event.type == 'invoice.paid':
             return self.handle_invoice_paid(event.data.object)
         
+        #: also happens on subscription renewal
         elif event.type == 'invoice.created':
             return self.handle_invoice_creation(event.data.object)
         
         elif event.type == 'customer.subscription.created':
             return self.handle_subscription_creation(event.data.object)
+
+        #: subscription renewal happens here 
+        #@ (other updates too mabe)
+        elif event.type == 'customer.subscription.updated':
+            pass
         
         elif event.type == 'customer.subscription.deleted':
             return self.handle_subscription_deletion(event.data.object)

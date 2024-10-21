@@ -9,7 +9,7 @@ from shop.serializers import ShopDetailSerializer
 from .models import *
 from .utils.serializer_utils import SerializerUtils
 from rest_framework import serializers
-from django.utils.timezone import datetime, timedelta
+from django.utils.timezone import timedelta
 
 class TierSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
@@ -199,7 +199,7 @@ class SubscriptionSerializer(serializers.Serializer):
             return pm.first()
         
     def validate(self, attrs):
-        if Subscription.objects.filter(shop=attrs['shop'], status='active').exists():
+        if Subscription.onDuties.filter(shop=attrs['shop']).exists():
             raise serializers.ValidationError("User already has an active subscription.")
         return attrs
     
@@ -320,7 +320,10 @@ class ProgressSerializer(serializers.Serializer):
         return instance
     
     def to_representation(self, instance):
-        now = datetime.now()
+        from django.utils import timezone
+        print ('instance', instance)
+        now = timezone.now()
+        shop = instance.subscription.user.shop_set.first()
         feature = instance.feature
         tierfeature = instance.subscription.tier.tierfeature_set.filter(feature=feature).first()
         limit = tierfeature.limitation
@@ -329,18 +332,19 @@ class ProgressSerializer(serializers.Serializer):
         feature_progress[feature.name] = {}
         feature_progress[feature.name]['access'] = limit['access']
         
-        feature_progress[feature.name]['day-usages'] = feature.feature_instance.filter(
-            shop=instance.subscription.user.shop,
-            created_at__date=now.date()
-        ).count()
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day = start_of_day + timedelta(days=1)
+        feature_progress[feature.name]['day-usages'] = feature.feature_instance.objects.filter(
+                    shop=shop, 
+                    created_at__range=(start_of_day, end_of_day)
+                ).count()
         feature_progress[feature.name]['day-cap'] = limit['day-cap']
         
         start_of_week = now - timedelta(days=now.weekday())  # Get the start of the current week (Monday)
-        feature_progress[feature.name]['week-usages'] = feature.feature_instance.filter(
-            shop=instance.subscription.user.shop,
-            created_at__date__gte=start_of_week.date(),
-            created_at__date__lte=now.date()
-        ).count()
+        feature_progress[feature.name]['week-usages'] = feature.feature_instance.objects.filter(
+                    shop=shop,
+                    created_at__range=(start_of_week, now),
+                ).count()
         feature_progress[feature.name]['week-cap'] = limit['week-cap']
         
         return {

@@ -1,6 +1,6 @@
 from django.db import models
 from django.apps import apps
-from eco_sys.mixins import SoftDeleteModelMixin
+from eco_sys.mixins import BasicManager, SoftDeleteModelMixin
 
 # Create your models here.
 
@@ -41,7 +41,19 @@ class Invoice(SoftDeleteModelMixin, models.Model):
     subscription = models.ForeignKey('subscription.Subscription', on_delete=models.CASCADE)
     status = models.CharField(max_length=200)
     receipt = models.JSONField(default=dict)
-
+    
+class SubscriptionActiveManager(BasicManager):
+    def get_queryset(self):
+        from django.utils import timezone
+        return super().get_queryset().filter(status='active', expire_date__gte=timezone.now())
+#@ Alternative approach
+# class SubscriptionActiveManager(SoftDeleteModelMixin.objects.__class__):
+#     def onDutyGetter(self, shop):
+#         from django.utils import timezone
+#         return Subscription.objects.filter(shop=shop, status='active', expire_date__gte=timezone.now()).first()
+# ...
+# ...
+    # objects = SubscriptionActiveManager()
 class Subscription(SoftDeleteModelMixin, models.Model):
     shop = models.ForeignKey('shop.Shop', on_delete=models.CASCADE)
     tier = models.ForeignKey(Tier, on_delete=models.CASCADE)
@@ -53,6 +65,8 @@ class Subscription(SoftDeleteModelMixin, models.Model):
     stripeSubscriptionID = models.CharField(max_length=200, null=True, blank=True)
 
     description = models.TextField(default="A Subscription that is created by User to attain Tier benefits.")
+    
+    onDuties = SubscriptionActiveManager()
     
 class Progress(SoftDeleteModelMixin, models.Model):
     subscription = models.ForeignKey(Subscription, on_delete=models.CASCADE)

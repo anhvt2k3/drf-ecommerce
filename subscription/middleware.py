@@ -1,7 +1,7 @@
 # from django.utils.deprecation import MiddlewareMixin
 from subscription.utils.utils import ViewUtils
 from django.http import HttpResponse
-from subscription.models import Feature, TierFeature
+from subscription.models import Feature, Subscription, TierFeature
 
 def decode_jwtNbind_user(request):
     import jwt
@@ -39,8 +39,8 @@ class FeatureAccessMiddleware:
         request = decode_jwtNbind_user(request)
         
         #* Check if the user has a shop and an active subscription
-        if not (shop := request.user.shop_set.first()): return Response(status=403, data="User must have a Shop for this feature !")
-        if not (cur_subscription := shop.subscription_set.filter(status='active').first()): return Response(status=403, data="No active subscription found for this shop !")
+        if not (shop := request.user.shop_set.first()): return HttpResponse(status=403, content="No shop found for this user !")
+        if not (cur_subscription := Subscription.onDuties.filter(shop=shop)): return HttpResponse(status=403, content="No active subscription found for this shop !")
         tier = cur_subscription.tier
         
         #* Check if the user has the feature in their tier

@@ -15,12 +15,16 @@ class ProgressionMerchantView(generics.GenericAPIView):
     permission_classes = [IsMerchant]
     
     def get(self, request, *args, **kwargs):
+        progress = Progress.objects.filter(subscription=Subscription.onDuties.filter(shop__merchant=request.user).first())
+        [print (i.status, i.expire_date, timezone.now()) for i in Subscription.objects.filter()]
+        print (Subscription.onDuties.filter(shop__merchant=request.user).first())
+        print (progress)
         data = ViewUtils.paginated_get_response(
-                    self,
-                    request,
-                    self.serializer_class,
-                    Progress.objects.filter(subscription=request.user.shop_set.first().subscription_set.first())                                                 
-                )
+                self,
+                request,
+                self.serializer_class,
+                progress                                                 
+            )
         
         return Response(data, data['status'])
     
@@ -31,11 +35,11 @@ class InvoiceMerchantView(generics.GenericAPIView):
     
     def get(self, request, *args, **kwargs):
         data = ViewUtils.paginated_get_response(
-                    self,
-                    request,
-                    self.serializer_class,
-                    Invoice.objects.filter(subscription__shop__merchant=request.user)                                                 
-                )
+                self,
+                request,
+                self.serializer_class,
+                Invoice.objects.filter(subscription__shop__merchant=request.user)                                                 
+            )
         
         return Response(data, data['status'])
     
@@ -44,9 +48,10 @@ class InvoiceMerchantView(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
+            return Response(data, data['status'])
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
-        return Response(data, data['status'])
+            return Response(data, data['status'])
     
 class SubscriptionMerchantView(generics.GenericAPIView):
     serializer_class = SubscriptionSerializer
@@ -70,9 +75,10 @@ class SubscriptionMerchantView(generics.GenericAPIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             data = ViewUtils.gen_response(success=True, status=HTTP_201_CREATED, message="Objects in required are created successfully.", data=serializer.data)
+            return Response(data, data['status'])
         else:
             data = ViewUtils.gen_response(success=False, status=HTTP_400_BAD_REQUEST, message="Invalid data.", data=serializer.errors)
-        return Response(data, data['status'])
+            return Response(data, data['status'])
     
 class PlanMerchantView(generics.GenericAPIView):
     serializer_class = PlanSerializer
